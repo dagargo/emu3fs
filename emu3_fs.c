@@ -53,7 +53,7 @@ static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
 	
 		entries_per_block = 0;
 		while (entries_per_block < MAX_ENTRIES_PER_BLOCK && IS_EMU3_FILE(e3d)) {
-			if(strncmp(dentry->d_name.name, e3d->name, dentry->d_name.len) == 0) {
+			if(strncmp(dentry->d_name.name, e3d->name, MAX_LENGTH_FILENAME) == 0) {
 				inode = emu3_iget(dir->i_sb, EMU3_I_ID(e3d));
 				d_add(dentry, inode);
 				return NULL;
@@ -94,7 +94,6 @@ static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
 static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
 {
     int i;
-    int filename_length;
     int block_num;
     int entries_per_block;
     struct dentry *de = f->f_dentry;
@@ -126,8 +125,7 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
 	
 		entries_per_block = 0;
 		while (entries_per_block < MAX_ENTRIES_PER_BLOCK && IS_EMU3_FILE(e3d)) {
-			filename_length = strnlen(e3d->name, MAX_LENGTH_FILENAME);
-			if (filldir(dirent, e3d->name, filename_length, f->f_pos++, EMU3_I_ID(e3d), DT_REG) < 0)
+			if (filldir(dirent, e3d->name, MAX_LENGTH_FILENAME, f->f_pos++, EMU3_I_ID(e3d), DT_REG) < 0)
     			return 0;
 			e3d++;
 			entries_per_block++;
@@ -141,6 +139,27 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
 		block_num++;
 	}
     return 0;
+}
+
+static int emu3_get_block(struct inode *inode, sector_t block,
+			struct buffer_head *bh_result, int create)
+{
+	struct super_block *sb = inode->i_sb;
+	struct emu3_inode * e3i = EMU3_I(inode);
+
+	if (block < e3i->blocks) {
+		if (!create) {
+			map_bh(bh_result, sb, e3i->start_block + block);
+			return 0;
+		}
+	}
+	
+	return -ENOSPC;
+}
+
+static int emu3_readpage(struct file *file, struct page *page)
+{
+	return block_read_full_page(page, emu3_get_block);
 }
 
 static struct inode *emu3_alloc_inode(struct super_block *sb)
@@ -206,11 +225,24 @@ static const struct super_operations emu3_super_operations = {
 	.statfs		    = emu3_statfs,
 };
 
+static const struct file_operations bfs_file_operations = {
+	.llseek 	 = generic_file_llseek,
+	.read		 = do_sync_read,
+	.aio_read	 = generic_file_aio_read,
+	.write		 = do_sync_write,
+	.aio_write	 = generic_file_aio_write,
+	.mmap		 = generic_file_mmap,
+	.splice_read = generic_file_splice_read,
+};
+
 static const struct file_operations emu3_file_operations_file = {
-	.read		= NULL,
-	.readdir	= NULL,
-	.fsync		= NULL,
-	.llseek		= NULL,
+	.llseek 	 = generic_file_llseek,
+	.read		 = do_sync_read,
+	.aio_read	 = generic_file_aio_read,
+	.write		 = NULL, //do_sync_write,
+	.aio_write	 = NULL, //generic_file_aio_write,
+	.mmap		 = generic_file_mmap,
+	.splice_read = generic_file_splice_read,
 };
 
 static const struct inode_operations emu3_inode_operations_file = {
@@ -229,11 +261,20 @@ static const struct file_operations emu3_file_operations_dir = {
 };
 
 static const struct inode_operations emu3_inode_operations_dir = {
-	.create			= NULL,
-	.lookup			= emu3_lookup,
-	.link			= NULL,
-	.unlink			= NULL,
-	.rename			= NULL,
+	.create	= NULL,
+	.lookup	= emu3_lookup,
+	.link   = NULL,
+	.unlink	= NULL,
+	.rename	= NULL,
+};
+
+static const struct address_space_operations emu3_aops = {
+	.readpage	 = emu3_readpage,
+	.writepage	 = NULL, //emu3_writepage,
+	.sync_page	 = NULL, //block_sync_page,
+	.write_begin = NULL, //emu3_write_begin,
+	.write_end	 = NULL, //generic_write_end,
+	.bmap		 = NULL, //emu3_bmap,
 };
 
 unsigned int emu3_file_bcount(struct emu3_sb_info * sb, struct emu3_dentry * e3d, int * start, int * size) {
@@ -276,24 +317,9 @@ static struct inode * emu3_iget(struct super_block *sb, unsigned long id)
 	if (IS_ERR(inode)) {
 		return ERR_PTR(-ENOMEM);
 	}
-	if (inode->i_state & I_NEW) {
-//		//TODO: Why the hell this is needed?
-//		if (inode->i_private == NULL) printk("Why NULL %d????????????????????????????????????????????\n", inode->i_ino);
-//		printk("Initiating emu3 inode 2 (%d)...\n", id);
-//		inode->i_private = kzalloc(sizeof(struct emu3_inode), GFP_KERNEL);
-	}
-	else {
+	if (!(inode->i_state & I_NEW)) {
 		return inode;
 	}
-	
-	inode->i_ino = id;
-	inode->i_mode = ((id == ROOT_DIR_INODE_ID)?S_IFDIR | S_IXUSR:S_IFREG) | S_IRUSR;
-	inode->i_uid = 0;
-	inode->i_gid = 0;	
-	inode->i_version = 1;
-	inode->i_nlink = 2;
-	inode->i_op = (id == ROOT_DIR_INODE_ID)?&emu3_inode_operations_dir:&emu3_inode_operations_file;
-	inode->i_fop = (id == ROOT_DIR_INODE_ID)?&emu3_file_operations_dir:&emu3_file_operations_file;
 	
 	file_found = 0;
 	file_count = 0;
@@ -341,10 +367,20 @@ static struct inode * emu3_iget(struct super_block *sb, unsigned long id)
 		return ERR_PTR(-EIO);
 	} 
 
+	inode->i_ino = id;
+	inode->i_mode = ((id == ROOT_DIR_INODE_ID)?S_IFDIR | S_IXUSR | S_IXGRP | S_IXOTH:S_IFREG) | S_IRUSR | S_IRGRP | S_IROTH;
+	inode->i_uid = 0;
+	inode->i_gid = 0;	
+	inode->i_version = 1;
+	inode->i_nlink = 2;
+	inode->i_op = (id == ROOT_DIR_INODE_ID)?&emu3_inode_operations_dir:&emu3_inode_operations_file;
+	inode->i_fop = (id == ROOT_DIR_INODE_ID)?&emu3_file_operations_dir:&emu3_file_operations_file;
 	inode->i_blocks = (id == ROOT_DIR_INODE_ID)?block_count:file_block_size;
 	inode->i_size = inode->i_blocks * EMU3_BSIZE;
 	EMU3_I(inode)->start_block = (id == ROOT_DIR_INODE_ID)?info->start_root_dir_block:file_block_start;
 	EMU3_I(inode)->blocks = inode->i_blocks;
+	if (id != ROOT_DIR_INODE_ID)
+		inode->i_mapping->a_ops = &emu3_aops;
 		
 	unlock_new_inode(inode);
 	
