@@ -39,8 +39,6 @@ static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
    	struct emu3_dentry * e3d;
    	struct emu3_inode * e3i;
 
-	printk("Lookupping...\n");
-
 	if (dentry->d_name.len > MAX_LENGTH_FILENAME)
 		return ERR_PTR(-ENAMETOOLONG);
 
@@ -102,8 +100,6 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
    	struct emu3_dentry * e3d;
    	struct emu3_inode * e3i;
    	
-	printk("Reddiring...\n");
-    
     //TODO: check error.
     if (de->d_inode->i_ino != ROOT_DIR_INODE_ID)
     	return -EBADF;
@@ -369,10 +365,10 @@ static struct inode * emu3_iget(struct super_block *sb, unsigned long id)
 
 	inode->i_ino = id;
 	inode->i_mode = ((id == ROOT_DIR_INODE_ID)?S_IFDIR | S_IXUSR | S_IXGRP | S_IXOTH:S_IFREG) | S_IRUSR | S_IRGRP | S_IROTH;
-	inode->i_uid = 0;
-	inode->i_gid = 0;	
+	inode->i_uid = current_fsuid();
+	inode->i_gid = current_fsgid();
 	inode->i_version = 1;
-	inode->i_nlink = 2;
+	inode->i_nlink = (id == ROOT_DIR_INODE_ID) ? 2 : 1;
 	inode->i_op = (id == ROOT_DIR_INODE_ID)?&emu3_inode_operations_dir:&emu3_inode_operations_file;
 	inode->i_fop = (id == ROOT_DIR_INODE_ID)?&emu3_file_operations_dir:&emu3_file_operations_file;
 	inode->i_blocks = (id == ROOT_DIR_INODE_ID)?block_count:file_block_size;
@@ -440,8 +436,6 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
         	}	
 		}
 	}
-	
-	//ret = -EIO;
 	
 	if (ret < 0) {
 		kfree(info);
