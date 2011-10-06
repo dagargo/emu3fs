@@ -1,5 +1,7 @@
 #include "emu3_fs.h"
 
+//This does not work on non 512B block devices.
+//TODO: http://thecoffeedesk.com/geocities/rkfs.html see PAGE_SIZE
 static int emu3_get_block(struct inode *inode, sector_t block,
 			struct buffer_head *bh_result, int create)
 {
@@ -7,7 +9,7 @@ static int emu3_get_block(struct inode *inode, sector_t block,
 	struct emu3_inode * e3i = EMU3_I(inode);
 
 	if (block < e3i->blocks) {
-		if (!create) {
+		if (!create) { //TODO: what is this for?
 			map_bh(bh_result, sb, e3i->start_block + block);
 			return 0;
 		}
@@ -45,5 +47,5 @@ const struct address_space_operations emu3_aops = {
 	.sync_page	 = NULL, //block_sync_page,
 	.write_begin = NULL, //emu3_write_begin,
 	.write_end	 = NULL, //generic_write_end,
-	.bmap		 = NULL, //emu3_bmap,
+	//TODO: release page?
 };
