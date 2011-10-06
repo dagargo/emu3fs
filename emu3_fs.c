@@ -22,8 +22,28 @@
 #include <linux/buffer_head.h>
 #include <linux/string.h>
 #include <linux/vfs.h>
+#include <linux/blkdev.h>
 
 #include "emu3_fs.h"
+
+static struct emu3_block * emu3_sb_bread(struct super_block *sb, unsigned long id)
+{
+	struct emu3_block * e3b = kzalloc(sizeof(struct emu3_block), GFP_KERNEL);
+	int ratio = EMU3_SB(sb)->ratio;
+	unsigned long num = id / ratio;
+	unsigned long offset = (id % ratio) * EMU3_BSIZE;
+	printk("Reading sector %d (%d, %d)...\n", id, num, offset);
+	e3b->block = sb_bread(sb, num);
+	printk("Sector length and bnr: %d %d\n", e3b->block->b_size, e3b->block->b_blocknr);
+	e3b->b_data = &(e3b->block->b_data[offset]);
+	return e3b;
+}
+
+void static emu3_brelse(struct emu3_block * e3b)
+{
+	brelse(e3b->block);
+	kfree(e3b);
+}
 
 static struct kmem_cache * emu3_inode_cachep;
 
@@ -34,7 +54,7 @@ static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
 	int block_num;
 	int entries_per_block;
 	struct inode *inode;
-	struct buffer_head *b;
+	struct emu3_block *b;
 	struct emu3_sb_info *info = EMU3_SB(dir->i_sb);
    	struct emu3_dentry * e3d;
    	struct emu3_inode * e3i;
@@ -45,7 +65,7 @@ static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
 	block_num = info->start_root_dir_block;
 	e3i = EMU3_I(dir);
 	for (i = 0; i < e3i->blocks; i++) {
-		b = sb_bread(dir->i_sb, block_num);
+		b = emu3_sb_bread(dir->i_sb, block_num);
 	
 		e3d = (struct emu3_dentry *)b->b_data;
 	
@@ -60,7 +80,7 @@ static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
 			entries_per_block++;
 		}
 	
-		brelse(b);
+		emu3_brelse(b);
 
 		if (entries_per_block < MAX_ENTRIES_PER_BLOCK)
 			break;
@@ -96,7 +116,7 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
     int entries_per_block;
     struct dentry *de = f->f_dentry;
    	struct emu3_sb_info *info = EMU3_SB(de->d_inode->i_sb);
-   	struct buffer_head *b;
+   	struct emu3_block *b;
    	struct emu3_dentry * e3d;
    	struct emu3_inode * e3i;
    	
@@ -115,7 +135,7 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
 	block_num = info->start_root_dir_block;
 	e3i = EMU3_I(de->d_inode);
 	for (i = 0; i < e3i->blocks; i++) {
-		b = sb_bread(de->d_inode->i_sb, block_num);
+		b = emu3_sb_bread(de->d_inode->i_sb, block_num);
 	
 		e3d = (struct emu3_dentry *)b->b_data;
 	
@@ -127,7 +147,7 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
 			entries_per_block++;
 		}
 	
-		brelse(b);
+		emu3_brelse(b);
 
 		if (entries_per_block < MAX_ENTRIES_PER_BLOCK)
 			break;
@@ -290,7 +310,7 @@ unsigned int emu3_file_bcount(struct emu3_sb_info * sb, struct emu3_dentry * e3d
 static struct inode * emu3_iget(struct super_block *sb, unsigned long id)
 {
 	struct inode * inode;
-	struct buffer_head *b;
+	struct emu3_block *b;
 	struct emu3_sb_info *info;
 	struct emu3_dentry * e3d;
 	int file_count;
@@ -323,16 +343,17 @@ static struct inode * emu3_iget(struct super_block *sb, unsigned long id)
 	block_num = info->start_root_dir_block;
 	err = 0;
 	while (file_count < EMU3_MAX_FILES) {
+		printk("Reading block %d\n", block_num);
 		block_count++;
 
-		b = sb_bread(sb, block_num);
+		b = emu3_sb_bread(sb, block_num);
 	
 		e3d = (struct emu3_dentry *)b->b_data;
-	
+		printk("%.3d: '%.16s (%d bytes)'.\n", EMU3_I_ID(e3d), e3d->name, file_block_size * EMU3_BSIZE);
 		entries_per_block = 0;
 		while (entries_per_block < MAX_ENTRIES_PER_BLOCK && IS_EMU3_FILE(e3d)) {
 			emu3_file_bcount(info, e3d, &file_block_start, &file_block_size);
-			//printk("%.3d: '%.16s (%d bytes)'.\n", EMU3_I_ID(e3d), e3d->name, file_block_size * EMU3_BSIZE);
+			printk("%.3d: '%.16s (%d bytes)'.\n", EMU3_I_ID(e3d), e3d->name, file_block_size * EMU3_BSIZE);
 			if (EMU3_I_ID(e3d) == id) { //Regular file found
 				//printk("Found inode %d!\n", id);
 				err = emu3_file_bcount(info, e3d, &file_block_start, &file_block_size);
@@ -344,7 +365,7 @@ static struct inode * emu3_iget(struct super_block *sb, unsigned long id)
 			entries_per_block++;
 		}
 	
-		brelse(b);
+		emu3_brelse(b);
 		
 		if (err)
 			break;
@@ -386,10 +407,10 @@ static struct inode * emu3_iget(struct super_block *sb, unsigned long id)
 static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 {
 	struct emu3_sb_info *info;
-	struct buffer_head *sbh;
+	struct emu3_block *sbh;
 	unsigned char * e3sb;
 	struct inode * inode;
-	int ret = 0;
+	int err = 0;
 	unsigned int * parameters;
 
 	info = kzalloc(sizeof(struct emu3_sb_info), GFP_KERNEL);
@@ -397,17 +418,38 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 		return -ENOMEM;
 	}
 	sb->s_fs_info = info;
-
-	sb_set_blocksize(sb, EMU3_BSIZE);
 	
-	sbh = sb_bread(sb, 0);
+	info->ratio = sb->s_blocksize / EMU3_BSIZE;
+	
+	/*DELETE*/
+	
+	sbh = emu3_sb_bread(sb, 6);
+	printk("%.16s\n", sbh->b_data);
+	emu3_brelse(sbh);
+
+	sbh = emu3_sb_bread(sb, 8);
+	printk("%.16s\n", sbh->b_data);
+	emu3_brelse(sbh);
+
+	sbh = emu3_sb_bread(sb, 9);
+	printk("%.16s\n", sbh->b_data);
+	emu3_brelse(sbh);
+
+	sbh = emu3_sb_bread(sb, 10);
+	printk("%.16s\n", sbh->b_data);
+	emu3_brelse(sbh);
+
+	
+	/*END*/
+	
+	sbh = emu3_sb_bread(sb, 0);
 	
 	if (sbh) {
 		e3sb = (unsigned char *)sbh->b_data;
 		
 		//Check EMU3 string
 		if (strncmp(EMU3_FS_SIGNATURE, e3sb, 4) != 0) {
-			ret = -EINVAL;
+			err = -EINVAL;
 			printk(KERN_ERR "Volume does not look like an EMU3 disk.");
 		}
 		else {
@@ -418,32 +460,32 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 			info->start_data_block = cpu_to_le32(parameters[8]);
 			info->blocks_per_cluster = (0x10000 << (e3sb[0x28] - 1)) / EMU3_BSIZE;
 
-			printk("EMU3 disk attributes: %ld, %ld, %ld, %ld\n", info->info_block, info->start_root_dir_block, info->start_data_block, info->blocks_per_cluster);
+			printk("EMU3 disk attributes: %ld, %ld, %ld, %ld.\n", info->info_block, info->start_root_dir_block, info->start_data_block, info->blocks_per_cluster);
 
 			sb->s_op = &emu3_super_operations;
 
 			inode = emu3_iget(sb, ROOT_DIR_INODE_ID);
 
 			if (!inode) {
-				ret = -EIO;
+				err = -EIO;
 			}
 			else {
 		    	sb->s_root = d_alloc_root(inode);
 		    	if (!sb->s_root) {
 		            iput(inode);
-					ret = -EIO;
+					err = -EIO;
 		    	}
         	}	
 		}
 	}
 	
-	if (ret < 0) {
+	if (err < 0) {
 		kfree(info);
 		sb->s_fs_info = NULL;
 	}
 	
-	brelse(sbh);
-	return ret;
+	emu3_brelse(sbh);
+	return err;
 }
 
 static struct dentry *emu3_fs_mount(struct file_system_type *fs_type,

@@ -1,3 +1,9 @@
+#include <linux/fs.h>
+#include <linux/slab.h>
+#include <linux/buffer_head.h>
+#include <linux/string.h>
+#include <linux/vfs.h>
+
 #define EMU3_MODULE_NAME "E-mu E3 filesystem module"
 
 #define EMU3_FS_SIGNATURE "EMU3"
@@ -26,6 +32,7 @@ struct emu3_sb_info {
 	unsigned long start_data_block;
 	unsigned long info_block;
 	unsigned long blocks_per_cluster;
+	unsigned int ratio;
 	//TODO: inode map?
 };
 
@@ -45,4 +52,23 @@ struct emu3_inode {
 	struct inode vfs_inode;
 };
 
-static struct inode * emu3_iget(struct super_block *, unsigned long);
+struct emu3_block {
+	struct buffer_head * block;
+	char * b_data;
+};
+
+extern const struct file_operations emu3_file_operations_dir;
+
+extern const struct inode_operations emu3_inode_operations_dir;
+
+extern const struct file_operations emu3_file_operations_file;
+
+extern const struct inode_operations emu3_inode_operations_file;
+
+extern const struct address_space_operations emu3_aops;
+
+struct inode * emu3_iget(struct super_block *, unsigned long);
+
+struct emu3_block * emu3_sb_bread(struct super_block *, unsigned long);
+
+void emu3_brelse(struct emu3_block *);
