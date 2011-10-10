@@ -19,28 +19,9 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 
-#include <linux/blkdev.h>
-
 #include "emu3_fs.h"
 
 static struct kmem_cache * emu3_inode_cachep;
-
-struct emu3_block * emu3_sb_bread(struct super_block *sb, unsigned long id)
-{
-	struct emu3_block * e3b = kzalloc(sizeof(struct emu3_block), GFP_KERNEL);
-	int ratio = EMU3_SB(sb)->ratio;
-	unsigned long num = id / ratio;
-	unsigned long offset = (id % ratio) * EMU3_BSIZE;
-	e3b->block = sb_bread(sb, num);
-	e3b->b_data = &(e3b->block->b_data[offset]);
-	return e3b;
-}
-
-void emu3_brelse(struct emu3_block * e3b)
-{
-	brelse(e3b->block);
-	kfree(e3b);
-}
 
 static struct inode *emu3_alloc_inode(struct super_block *sb)
 {
@@ -86,21 +67,21 @@ static void destroy_inodecache(void)
 	kmem_cache_destroy(emu3_inode_cachep);
 }
 
-//TODO:complete
 static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
 {
 	struct super_block *sb = dentry->d_sb;
 	struct emu3_sb_info *info = EMU3_SB(sb);
 	u64 id = huge_encode_dev(sb->s_bdev->bd_dev);
-	buf->f_type = 0x454d5533; //TODO (EMU3)
+	buf->f_type = EMU3_FS_TYPE;
 	buf->f_bsize = EMU3_BSIZE;
-	buf->f_blocks = 0x6000000; //Wrong!!! /x200
-	buf->f_bfree = 0;
-	buf->f_files = 100;
-	buf->f_ffree = 0;
+	buf->f_blocks = info->clusters * EMU3_BSIZE;
+	buf->f_bfree = (info->clusters - info->next_cluster) * EMU3_BSIZE; //TODO: info->next_cluster
+	buf->f_bavail = buf->f_bfree;
+	buf->f_files = EMU3_MAX_FILES;
+	buf->f_ffree = EMU3_MAX_FILES - info->used_inodes; //TODO: info->used_inodes
 	buf->f_fsid.val[0] = (u32)id;
 	buf->f_fsid.val[1] = (u32)(id >> 32);
-	buf->f_namelen = 16;
+	buf->f_namelen = MAX_LENGTH_FILENAME;
 	return 0;
 }
 
@@ -129,7 +110,7 @@ unsigned int emu3_file_bcount(struct emu3_sb_info * sb, struct emu3_dentry * e3d
 	unsigned int blocks = cpu_to_le16(e3d->blocks);
 	if (blocks > sb->blocks_per_cluster) {
 		//TODO: check message && ERROR
-		printk(KERN_ERR "Error in %s. EOF wrong in file id %d.\n", EMU3_MODULE_NAME, EMU3_I_ID(e3d));
+		printk(KERN_ERR "%s EOF wrong in file id %d.\n", EMU3_ERROR_MSG, EMU3_I_ID(e3d));
 		return -1;
 	}
 	*size = ((clusters * sb->blocks_per_cluster) + blocks);
@@ -140,10 +121,9 @@ unsigned int emu3_file_bcount(struct emu3_sb_info * sb, struct emu3_dentry * e3d
 struct inode * emu3_iget(struct super_block *sb, unsigned long id)
 {
 	struct inode * inode;
-	struct emu3_block *b;
+	struct buffer_head *b;
 	struct emu3_sb_info *info;
 	struct emu3_dentry * e3d;
-	int file_count;
 	int block_count;
 	int file_block_size;
 	int file_block_start;
@@ -151,6 +131,7 @@ struct inode * emu3_iget(struct super_block *sb, unsigned long id)
 	unsigned int block_num;
 	int file_found;
 	int entries_per_block;
+	int file_count;
 
 	info = EMU3_SB(sb);
 
@@ -173,34 +154,33 @@ struct inode * emu3_iget(struct super_block *sb, unsigned long id)
 	block_num = info->start_root_dir_block;
 	err = 0;
 	while (file_count < EMU3_MAX_FILES) {
-		printk("Reading block %d\n", block_num);
 		block_count++;
 
-		b = emu3_sb_bread(sb, block_num);
+		b = sb_bread(sb, block_num);
 	
 		e3d = (struct emu3_dentry *)b->b_data;
-		printk("%.3d: '%.16s (%d bytes)'.\n", EMU3_I_ID(e3d), e3d->name, file_block_size * EMU3_BSIZE);
 		entries_per_block = 0;
 		while (entries_per_block < MAX_ENTRIES_PER_BLOCK && IS_EMU3_FILE(e3d)) {
-			emu3_file_bcount(info, e3d, &file_block_start, &file_block_size);
-			printk("%.3d: '%.16s (%d bytes)'.\n", EMU3_I_ID(e3d), e3d->name, file_block_size * EMU3_BSIZE);
+			//emu3_file_bcount(info, e3d, &file_block_start, &file_block_size);
+			//printk("%.3d: '%.16s (%d bytes)'.\n", EMU3_I_ID(e3d), e3d->name, file_block_size * EMU3_BSIZE);
+			file_count++;
+			entries_per_block++;
 			if (EMU3_I_ID(e3d) == id) { //Regular file found
 				//printk("Found inode %d!\n", id);
 				err = emu3_file_bcount(info, e3d, &file_block_start, &file_block_size);
 				file_found = 1;
+				//TODO: check next < max
 				break;
 			}
 			e3d++;
-			file_count++;
-			entries_per_block++;
 		}
 	
-		emu3_brelse(b);
+		brelse(b);
 		
 		if (err)
 			break;
 		
-		if (file_found != 0)
+		if (file_found)
 			break;
 
 		if (entries_per_block < MAX_ENTRIES_PER_BLOCK)
@@ -212,8 +192,8 @@ struct inode * emu3_iget(struct super_block *sb, unsigned long id)
 	if ((!file_found && id != ROOT_DIR_INODE_ID) || err) {
 		iget_failed(inode);
 		return ERR_PTR(-EIO);
-	} 
-
+	}
+	
 	inode->i_ino = id;
 	inode->i_mode = ((id == ROOT_DIR_INODE_ID)?S_IFDIR | S_IXUSR | S_IXGRP | S_IXOTH:S_IFREG) | S_IRUSR | S_IRGRP | S_IROTH;
 	inode->i_uid = current_fsuid();
@@ -237,21 +217,24 @@ struct inode * emu3_iget(struct super_block *sb, unsigned long id)
 static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 {
 	struct emu3_sb_info *info;
-	struct emu3_block *sbh;
+	struct buffer_head *sbh;
 	unsigned char * e3sb;
 	struct inode * inode;
 	int err = 0;
 	unsigned int * parameters;
+
+	if (sb_set_blocksize(sb, EMU3_BSIZE) != EMU3_BSIZE) {
+		printk(KERN_ERR "%s Impossible to mount. Linux does not allow 512B block size on this device.", EMU3_ERROR_MSG);
+		return -EINVAL;
+	}
 
 	info = kzalloc(sizeof(struct emu3_sb_info), GFP_KERNEL);
 	if (!info) {
 		return -ENOMEM;
 	}
 	sb->s_fs_info = info;
-	
-	info->ratio = sb->s_blocksize / EMU3_BSIZE;
-	
-	sbh = emu3_sb_bread(sb, 0);
+		
+	sbh = sb_bread(sb, 0);
 	
 	if (sbh) {
 		e3sb = (unsigned char *)sbh->b_data;
@@ -264,12 +247,15 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 		else {
 			parameters = (unsigned int *) e3sb;
 			
+			info->blocks = cpu_to_le32(parameters[1]);
 			info->info_block = cpu_to_le32(parameters[2]);
 			info->start_root_dir_block = cpu_to_le32(parameters[4]);
 			info->start_data_block = cpu_to_le32(parameters[8]);
 			info->blocks_per_cluster = (0x10000 << (e3sb[0x28] - 1)) / EMU3_BSIZE;
+			info->clusters = cpu_to_le32(parameters[9]);
+			//TODO: check clusters ok.
 
-			printk("EMU3 disk attributes: %ld, %ld, %ld, %ld.\n", info->info_block, info->start_root_dir_block, info->start_data_block, info->blocks_per_cluster);
+			printk("EMU3 disk attributes: blocks: %ld; clusters: %ld; info: %ld; root: %ld; data: %ld; b/c: %ld.\n", info->blocks, info->clusters, info->info_block, info->start_root_dir_block, info->start_data_block, info->blocks_per_cluster);
 
 			sb->s_op = &emu3_super_operations;
 
@@ -293,7 +279,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 		sb->s_fs_info = NULL;
 	}
 	
-	emu3_brelse(sbh);
+	brelse(sbh);
 	return err;
 }
 

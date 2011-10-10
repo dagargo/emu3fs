@@ -6,7 +6,10 @@
 
 #define EMU3_MODULE_NAME "E-mu E3 filesystem module"
 
+#define EMU3_ERROR_MSG "E-mu E3 error: "
+
 #define EMU3_FS_SIGNATURE "EMU3"
+#define EMU3_FS_TYPE 0x454d5533
 
 #define EMU3_BSIZE 0x200
 
@@ -17,7 +20,9 @@
 
 #define EMU3_I_ID(e3d) ((e3d->id) + 1)
 
-#define EMU3_MAX_FILES 100
+#define EMU3_MAX_FILES (EMU3_MAX_REGULAR_FILE + 2) //100 regular banks + 2 special rom files
+
+#define EMU3_MAX_REGULAR_FILE 100
 
 #define MAX_ENTRIES_PER_BLOCK 16
 
@@ -27,12 +32,16 @@
 
 #define IS_EMU3_FILE(e3d) ((e3d->clusters > 0) && (e3d->props[2] == 0x81 || e3d->props[2] == 0x80))
 
+//TODO: change to int
 struct emu3_sb_info {
 	unsigned long start_root_dir_block;
 	unsigned long start_data_block;
 	unsigned long info_block;
 	unsigned long blocks_per_cluster;
-	unsigned int ratio;
+	unsigned long clusters;
+	unsigned long blocks;
+	unsigned long used_inodes;
+	unsigned long next_available_cluster;
 	//TODO: inode map?
 };
 
@@ -52,11 +61,6 @@ struct emu3_inode {
 	struct inode vfs_inode;
 };
 
-struct emu3_block {
-	struct buffer_head * block;
-	char * b_data;
-};
-
 extern const struct file_operations emu3_file_operations_dir;
 
 extern const struct inode_operations emu3_inode_operations_dir;
@@ -68,7 +72,3 @@ extern const struct inode_operations emu3_inode_operations_file;
 extern const struct address_space_operations emu3_aops;
 
 struct inode * emu3_iget(struct super_block *, unsigned long);
-
-struct emu3_block * emu3_sb_bread(struct super_block *, unsigned long);
-
-void emu3_brelse(struct emu3_block *);

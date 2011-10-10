@@ -7,7 +7,7 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
     int entries_per_block;
     struct dentry *de = f->f_dentry;
    	struct emu3_sb_info *info = EMU3_SB(de->d_inode->i_sb);
-   	struct emu3_block *b;
+   	struct buffer_head *b;
    	struct emu3_dentry * e3d;
    	struct emu3_inode * e3i;
    	
@@ -26,7 +26,7 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
 	block_num = info->start_root_dir_block;
 	e3i = EMU3_I(de->d_inode);
 	for (i = 0; i < e3i->blocks; i++) {
-		b = emu3_sb_bread(de->d_inode->i_sb, block_num);
+		b = sb_bread(de->d_inode->i_sb, block_num);
 	
 		e3d = (struct emu3_dentry *)b->b_data;
 	
@@ -38,7 +38,7 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
 			entries_per_block++;
 		}
 	
-		emu3_brelse(b);
+		brelse(b);
 
 		if (entries_per_block < MAX_ENTRIES_PER_BLOCK)
 			break;
@@ -55,7 +55,7 @@ static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
 	int block_num;
 	int entries_per_block;
 	struct inode *inode;
-	struct emu3_block *b;
+	struct buffer_head *b;
 	struct emu3_sb_info *info = EMU3_SB(dir->i_sb);
    	struct emu3_dentry * e3d;
    	struct emu3_inode * e3i;
@@ -66,7 +66,7 @@ static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
 	block_num = info->start_root_dir_block;
 	e3i = EMU3_I(dir);
 	for (i = 0; i < e3i->blocks; i++) {
-		b = emu3_sb_bread(dir->i_sb, block_num);
+		b = sb_bread(dir->i_sb, block_num);
 	
 		e3d = (struct emu3_dentry *)b->b_data;
 	
@@ -81,7 +81,7 @@ static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
 			entries_per_block++;
 		}
 	
-		emu3_brelse(b);
+		brelse(b);
 
 		if (entries_per_block < MAX_ENTRIES_PER_BLOCK)
 			break;

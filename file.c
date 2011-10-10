@@ -1,7 +1,6 @@
 #include "emu3_fs.h"
 
 //This does not work on non 512B block devices.
-//TODO: http://thecoffeedesk.com/geocities/rkfs.html see PAGE_SIZE
 static int emu3_get_block(struct inode *inode, sector_t block,
 			struct buffer_head *bh_result, int create)
 {
