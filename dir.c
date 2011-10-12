@@ -92,6 +92,11 @@ static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
 	return NULL;
 }
 
+static int emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
+			struct inode *new_dir, struct dentry *new_dentry) {
+	return -EINVAL;
+}
+
 const struct file_operations emu3_file_operations_dir = {
 	.read		= generic_read_dir,
 	.readdir	= emu3_readdir,
@@ -104,5 +109,5 @@ const struct inode_operations emu3_inode_operations_dir = {
 	.lookup	= emu3_lookup,
 	.link   = NULL,
 	.unlink	= NULL,
-	.rename	= NULL,
+	.rename	= emu3_rename,
 };

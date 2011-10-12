@@ -34,12 +34,14 @@
 
 //TODO: change to int
 struct emu3_sb_info {
+	unsigned long blocks;
+	unsigned long start_info_block;
+	unsigned long info_blocks;
 	unsigned long start_root_dir_block;
+	unsigned long root_dir_blocks;
 	unsigned long start_data_block;
-	unsigned long info_block;
 	unsigned long blocks_per_cluster;
 	unsigned long clusters;
-	unsigned long blocks;
 	unsigned long used_inodes;
 	unsigned long next_available_cluster;
 	//TODO: inode map?
