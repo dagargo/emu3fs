@@ -1,19 +1,22 @@
 /*  
- *	emu3_fs.c
+ *	inode.c
  *	Copyright (C) 2011 David García Goñi <dagargo at gmail dot com>
  *
- *  Code based on bfs for Linux by Tigran Aivazian.
- *  lkm_emu.c
- *  E-mu E3 filesystem module for RO operations.
- *  http://pages.cpsc.ucalgary.ca/~crwth/programming/VFS/VFS.php
- *  http://tldp.org/LDP/lki/lki-3.html
- *  /usr/src/linux-headers-2.6.38-8-generic/include/linux/fs.h
- *  http://tldp.org/HOWTO/Module-HOWTO/x197.html
- *  Zip image: 0x6000000 blocks
- *  http://www.tldp.org/LDP/lkmpg/2.6/html/index.html
- *  http://thecoffeedesk.com/geocities/rkfs.html
- *  
- */
+ *   This file is part of EMU3 Filesystem Tools.
+ *
+ *   EMU3 Filesystem Tools is free software: you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation, either version 3 of the License, or
+ *   (at your option) any later version.
+ *
+ *   EMU3 Filesystem Tool is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with EMU3 Filesystem Tool.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include <linux/module.h>
 #include <linux/kernel.h>
