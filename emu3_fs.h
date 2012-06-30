@@ -50,7 +50,7 @@
 
 #define MAX_LENGTH_FILENAME 16
 
-#define IS_EMU3_FILE(e3d) ((e3d->clusters > 0) && (e3d->props[2] == 0x81 || e3d->props[2] == 0x80))
+#define IS_EMU3_FILE(e3d) ((e3d->clusters > 0) && (e3d->props[0] == 0x81 || e3d->props[0] == 0x80))
 
 //TODO: change to int
 struct emu3_sb_info {
@@ -74,7 +74,8 @@ struct emu3_dentry {
 	unsigned short start_cluster;
 	unsigned short clusters;
 	unsigned short blocks;
-	unsigned char props[8];
+	unsigned short bytes;
+	unsigned char props[6];
 };
 
 struct emu3_inode {
