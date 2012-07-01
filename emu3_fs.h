@@ -40,9 +40,9 @@
 
 #define EMU3_I_ID(e3d) ((e3d->id) + 1)
 
-#define EMU3_MAX_FILES (EMU3_MAX_REGULAR_FILE + 2) //100 regular banks + 2 special rom files
-
 #define EMU3_MAX_REGULAR_FILE 100
+
+#define EMU3_MAX_FILES (EMU3_MAX_REGULAR_FILE + 2) //100 regular banks + 2 special rom files
 
 #define MAX_ENTRIES_PER_BLOCK 16
 
@@ -50,20 +50,25 @@
 
 #define MAX_LENGTH_FILENAME 16
 
-#define IS_EMU3_FILE(e3d) ((e3d->clusters > 0) && (e3d->props[0] == 0x81 || e3d->props[0] == 0x80))
+#define FTYPE_NON 0x00
+#define FTYPE_STD 0x81
+#define FTYPE_UPD 0x83
+#define FTYPE_SYS 0x80
 
-//TODO: change to int
+#define IS_EMU3_FILE(e3d) ((e3d->clusters > 0) && \
+	(e3d->type == FTYPE_NON || e3d->type == FTYPE_STD || e3d->type == FTYPE_UPD || e3d->type == FTYPE_SYS))
+
 struct emu3_sb_info {
-	unsigned long blocks;
-	unsigned long start_info_block;
-	unsigned long info_blocks;
-	unsigned long start_root_dir_block;
-	unsigned long root_dir_blocks;
-	unsigned long start_data_block;
-	unsigned long blocks_per_cluster;
-	unsigned long clusters;
-	unsigned long used_inodes;
-	unsigned long next_available_cluster;
+	unsigned int blocks;
+	unsigned int start_info_block;
+	unsigned int info_blocks;
+	unsigned int start_root_dir_block;
+	unsigned int root_dir_blocks;
+	unsigned int start_data_block;
+	unsigned int blocks_per_cluster;
+	unsigned int clusters;
+	unsigned int used_inodes;
+	unsigned int next_available_cluster;
 	//TODO: inode map?
 };
 
@@ -75,7 +80,8 @@ struct emu3_dentry {
 	unsigned short clusters;
 	unsigned short blocks;
 	unsigned short bytes;
-	unsigned char props[6];
+	unsigned char type;
+	unsigned char props[5];
 };
 
 struct emu3_inode {

@@ -43,6 +43,7 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
     if (filldir(dirent, "..", 2, f->f_pos++, de->d_parent->d_inode->i_ino, DT_DIR) < 0)
     	return 0;
 
+	info->used_inodes = 0;
 	block_num = info->start_root_dir_block;
 	e3i = EMU3_I(de->d_inode);
 	for (i = 0; i < e3i->blocks; i++) {
@@ -52,19 +53,24 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
 	
 		entries_per_block = 0;
 		while (entries_per_block < MAX_ENTRIES_PER_BLOCK && IS_EMU3_FILE(e3d)) {
-			if (filldir(dirent, e3d->name, MAX_LENGTH_FILENAME, f->f_pos++, EMU3_I_ID(e3d), DT_REG) < 0)
+			if (filldir(dirent, e3d->name, MAX_LENGTH_FILENAME, f->f_pos++, EMU3_I_ID(e3d), DT_REG) < 0) {
     			return 0;
+    		}
+			info->used_inodes++;
+			info->next_available_cluster = e3d->start_cluster + e3d->clusters;
 			e3d++;
 			entries_per_block++;
 		}
 	
 		brelse(b);
 
-		if (entries_per_block < MAX_ENTRIES_PER_BLOCK)
+		if (entries_per_block < MAX_ENTRIES_PER_BLOCK) {
 			break;
+		}
 
 		block_num++;
 	}
+	
     return 0;
 }
 

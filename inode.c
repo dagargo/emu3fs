@@ -114,11 +114,11 @@ static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
 	u64 id = huge_encode_dev(sb->s_bdev->bd_dev);
 	buf->f_type = EMU3_FS_TYPE;
 	buf->f_bsize = EMU3_BSIZE;
-	buf->f_blocks = info->clusters * EMU3_BSIZE;
-	buf->f_bfree = (info->clusters - info->next_available_cluster) * EMU3_BSIZE; //TODO: info->next_available_cluster
+	buf->f_blocks = info->clusters * info->blocks_per_cluster;
+	buf->f_bfree = (info->clusters - info->next_available_cluster) * info->blocks_per_cluster;
 	buf->f_bavail = buf->f_bfree;
-	buf->f_files = EMU3_MAX_FILES;
-	buf->f_ffree = EMU3_MAX_FILES - info->used_inodes; //TODO: info->used_inodes
+	buf->f_files = info->used_inodes;
+	buf->f_ffree = EMU3_MAX_FILES - info->used_inodes;
 	buf->f_fsid.val[0] = (u32)id;
 	buf->f_fsid.val[1] = (u32)(id >> 32);
 	buf->f_namelen = MAX_LENGTH_FILENAME;
@@ -154,7 +154,7 @@ unsigned int emu3_file_block_count(struct emu3_sb_info * sb, struct emu3_dentry 
 		return -1;
 	}
 	*bsize = (clusters * sb->blocks_per_cluster) + blocks;
-	*fsize = (((*bsize) - 1) * EMU3_BSIZE) + (cpu_to_le16(e3d->bytes) - 1);
+	*fsize = (((*bsize) - 1) * EMU3_BSIZE) + cpu_to_le16(e3d->bytes);
 	*start = (start_cluster * sb->blocks_per_cluster) + sb->start_data_block;
 	return 0;
 }
@@ -263,12 +263,12 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 			info->start_data_block = cpu_to_le32(parameters[8]);
 			info->blocks_per_cluster = (0x10000 << (e3sb[0x28] - 1)) / EMU3_BSIZE;
 			info->clusters = cpu_to_le32(parameters[9]);
-			//TODO: check clusters ok.
+			//TODO: check clusters ok. Seems so...
 
-			printk("%s: %ld blocks, %ld clusters, b/c %ld.\n", EMU3_MODULE_NAME, info->blocks, info->clusters, info->blocks_per_cluster);
-			printk("%s: info init sector @ %ld + %ld sectors.\n", EMU3_MODULE_NAME, info->start_info_block, info->info_blocks);
-			printk("%s: root init sector @ %ld + %ld sectors.\n", EMU3_MODULE_NAME, info->start_root_dir_block, info->root_dir_blocks);
-			printk("%s: data init sector @ %ld + %ld clusters.\n", EMU3_MODULE_NAME, info->start_data_block, info->clusters);
+			printk("%s: %d blocks, %d clusters, b/c %d.\n", EMU3_MODULE_NAME, info->blocks, info->clusters, info->blocks_per_cluster);
+			printk("%s: info init sector @ %d + %d sectors.\n", EMU3_MODULE_NAME, info->start_info_block, info->info_blocks);
+			printk("%s: root init sector @ %d + %d sectors.\n", EMU3_MODULE_NAME, info->start_root_dir_block, info->root_dir_blocks);
+			printk("%s: data init sector @ %d + %d clusters.\n", EMU3_MODULE_NAME, info->start_data_block, info->clusters);
 						
 			sb->s_op = &emu3_super_operations;
 
