@@ -20,7 +20,6 @@
 
 #include "emu3_fs.h"
 
-//This only works on 512B block devices.
 static int emu3_get_block(struct inode *inode, sector_t block,
 			struct buffer_head *bh_result, int create)
 {

@@ -210,6 +210,9 @@ struct inode * emu3_iget(struct super_block *sb, unsigned long id)
 	inode->i_fop = (id == ROOT_DIR_INODE_ID)?&emu3_file_operations_dir:&emu3_file_operations_file;
 	inode->i_blocks = file_block_size;
 	inode->i_size = file_size;
+	inode->i_atime = CURRENT_TIME;
+	inode->i_mtime = CURRENT_TIME;
+	inode->i_ctime = CURRENT_TIME;
 	EMU3_I(inode)->start_block = file_block_start;
 	EMU3_I(inode)->blocks = inode->i_blocks;
 	if (id != ROOT_DIR_INODE_ID) {

@@ -53,9 +53,11 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
 	
 		entries_per_block = 0;
 		while (entries_per_block < MAX_ENTRIES_PER_BLOCK && IS_EMU3_FILE(e3d)) {
-			if (filldir(dirent, e3d->name, MAX_LENGTH_FILENAME, f->f_pos++, EMU3_I_ID(e3d), DT_REG) < 0) {
-    			return 0;
-    		}
+			if (e3d->type != FTYPE_NON) { //Mark as deleted files will no show
+				if (filldir(dirent, e3d->name, MAX_LENGTH_FILENAME, f->f_pos++, EMU3_I_ID(e3d), DT_REG) < 0) {
+					return 0;
+				}
+			}
 			info->used_inodes++;
 			info->next_available_cluster = e3d->start_cluster + e3d->clusters;
 			e3d++;
@@ -118,11 +120,6 @@ static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
 	return NULL;
 }
 
-static int emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
-			struct inode *new_dir, struct dentry *new_dentry) {
-	return -EINVAL;
-}
-
 const struct file_operations emu3_file_operations_dir = {
 	.read		= generic_read_dir,
 	.readdir	= emu3_readdir,
@@ -134,6 +131,6 @@ const struct inode_operations emu3_inode_operations_dir = {
 	.create	= NULL,
 	.lookup	= emu3_lookup,
 	.link   = NULL,
-	.unlink	= NULL,
-	.rename	= emu3_rename,
+	.unlink	= NULL, //emu3_unlink,
+	.rename	= NULL
 };

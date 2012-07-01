@@ -70,6 +70,7 @@ struct emu3_sb_info {
 	unsigned int used_inodes;
 	unsigned int next_available_cluster;
 	//TODO: inode map?
+	struct mutex bfs_lock;
 };
 
 struct emu3_dentry {
