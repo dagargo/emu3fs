@@ -70,7 +70,8 @@ static void destroy_inodecache(void)
 	kmem_cache_destroy(emu3_inode_cachep);
 }
 
-static struct emu3_dentry * emu3_find_dentry(struct super_block *sb, u16 id, struct buffer_head **b)
+//TODO: casi repetido 2 veces en dir.c
+static struct emu3_dentry * emu3_find_dentry(struct super_block *sb, unsigned long id, struct buffer_head **b)
 {
 	struct emu3_sb_info *info;
 	struct emu3_dentry * e3d;
@@ -121,7 +122,7 @@ static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
 	buf->f_ffree = EMU3_MAX_FILES - info->used_inodes;
 	buf->f_fsid.val[0] = (u32)id;
 	buf->f_fsid.val[1] = (u32)(id >> 32);
-	buf->f_namelen = MAX_LENGTH_FILENAME;
+	buf->f_namelen = LENGTH_SHOWED_FILENAME;
 	return 0;
 }
 
@@ -144,7 +145,11 @@ static const struct super_operations emu3_super_operations = {
 	.statfs		    = emu3_statfs
 };
 
-unsigned int emu3_file_block_count(struct emu3_sb_info * sb, struct emu3_dentry * e3d, int * start, int * bsize, int * fsize) {
+unsigned int emu3_file_block_count(struct emu3_sb_info * sb, 
+									struct emu3_dentry * e3d,
+									int * start,
+									int * bsize,
+									int * fsize) {
 	unsigned int start_cluster = cpu_to_le16(e3d->start_cluster) - 1;
 	unsigned int clusters = cpu_to_le16(e3d->clusters) - 1;
 	unsigned int blocks = cpu_to_le16(e3d->blocks);

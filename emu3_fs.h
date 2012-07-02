@@ -48,15 +48,19 @@
 
 #define ROOT_DIR_INODE_ID 1024 //Any value is valid as long as is greater than the highest inode id.
 
-#define MAX_LENGTH_FILENAME 16
+#define LENGTH_FILENAME 16
+
+#define FILENAME_TEMPLATE "B%.2d %.16s"
+
+#define LENGTH_SHOWED_FILENAME 21 // 20 + null char
 
 #define FTYPE_NON 0x00
 #define FTYPE_STD 0x81
 #define FTYPE_UPD 0x83
 #define FTYPE_SYS 0x80
 
-#define IS_EMU3_FILE(e3d) ((e3d->clusters > 0) && \
-	(e3d->type == FTYPE_NON || e3d->type == FTYPE_STD || e3d->type == FTYPE_UPD || e3d->type == FTYPE_SYS))
+#define IS_EMU3_FILE(e3d) (((e3d)->clusters > 0) && \
+	((e3d)->type == FTYPE_NON || (e3d)->type == FTYPE_STD || (e3d)->type == FTYPE_UPD || (e3d)->type == FTYPE_SYS))
 
 struct emu3_sb_info {
 	unsigned int blocks;
@@ -70,7 +74,7 @@ struct emu3_sb_info {
 	unsigned int used_inodes;
 	unsigned int next_available_cluster;
 	//TODO: inode map?
-	struct mutex bfs_lock;
+	struct mutex lock;
 };
 
 struct emu3_dentry {
