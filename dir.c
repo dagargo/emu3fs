@@ -65,6 +65,7 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
 				}
 			}
 			info->used_inodes++;
+			//Should this be moved to a run on dirty sb function?
 			info->next_available_cluster = e3d->start_cluster + e3d->clusters;
 			e3d++;
 			entries_per_block++;
@@ -143,6 +144,10 @@ static int emu3_unlink(struct inode *dir, struct dentry *dentry) {
    	struct emu3_dentry * e3d;
 	struct inode *inode = dentry->d_inode;
     struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
+
+	if (dentry->d_name.len > LENGTH_SHOWED_FILENAME) {
+		return -ENAMETOOLONG;
+	}
 
 	b = emu3_find_entry(dir, dentry->d_name.name, &e3d);
 

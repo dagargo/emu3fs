@@ -130,6 +130,8 @@ static void emu3_put_super(struct super_block *sb)
 {
 	struct emu3_sb_info *info = EMU3_SB(sb);
 
+	mutex_destroy(&info->lock);
+
 	if (info) {
 		kfree(info);
 		sb->s_fs_info = NULL;
@@ -206,7 +208,7 @@ struct inode * emu3_iget(struct super_block *sb, unsigned long id)
 	}
 	
 	inode->i_ino = id;
-	inode->i_mode = ((id == ROOT_DIR_INODE_ID)?S_IFDIR | S_IXUSR | S_IXGRP | S_IXOTH:S_IFREG) | S_IRUSR | S_IRGRP | S_IROTH;
+	inode->i_mode = ((id == ROOT_DIR_INODE_ID)?S_IFDIR | S_IXUSR | S_IXGRP | S_IXOTH:S_IFREG) | S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH;
 	inode->i_uid = current_fsuid();
 	inode->i_gid = current_fsgid();
 	inode->i_version = 1;
@@ -248,6 +250,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 	if (!info) {
 		return -ENOMEM;
 	}
+	
 	sb->s_fs_info = info;
 		
 	sbh = sb_bread(sb, 0);
@@ -295,7 +298,10 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 		}
 	}
 	
-	if (err < 0) {
+	if (!err) {
+		mutex_init(&info->lock);
+	}
+	else {
 		kfree(info);
 		sb->s_fs_info = NULL;
 	}
