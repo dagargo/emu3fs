@@ -20,15 +20,24 @@
 
 #include "emu3_fs.h"
 
-static inline void get_emu3_fulldentry(char * fullname, struct emu3_dentry * e3d) {
-	sprintf(fullname, FILENAME_TEMPLATE, EMU3_I_ID(e3d), e3d->name);
+static int name_comparator(void * v, struct emu3_dentry * e3d) {
+	unsigned char * name = (unsigned char *) v;
+	unsigned char fullname[LENGTH_SHOWED_FILENAME];
+	get_emu3_fulldentry(fullname, e3d);
+	if(strcmp(name, fullname) == 0) {
+		return 0;
+	}
+	return -1;
+}
+
+static inline struct emu3_dentry * emu3_find_dentry_by_name(struct super_block *sb, const unsigned char * name, struct buffer_head **b)
+{
+	return emu3_find_dentry(sb, b, (void *) name, name_comparator);
 }
 
 static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
 {
-    int i;
-    int block_num;
-    int entries_per_block;
+    int i, j;
     struct dentry *de = f->f_dentry;
    	struct emu3_sb_info *info = EMU3_SB(de->d_inode->i_sb);
    	struct buffer_head *b;
@@ -39,7 +48,7 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
     if (de->d_inode->i_ino != ROOT_DIR_INODE_ID)
     	return -EBADF;
 
-    if(f->f_pos > 0 )
+    if (f->f_pos > 0)
     	return 0; //Returning an error here (-EBADF) makes ls giving a WRONG DESCRIPTOR FILE.
     
     if (filldir(dirent, ".", 1, f->f_pos++, de->d_inode->i_ino, DT_DIR) < 0)
@@ -47,95 +56,63 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
     if (filldir(dirent, "..", 2, f->f_pos++, de->d_parent->d_inode->i_ino, DT_DIR) < 0)
     	return 0;
 
+	//What if reading by id the 102 files? 00-99, 107 and 109
+
 	info->used_inodes = 0;
-	block_num = info->start_root_dir_block;
 	e3i = EMU3_I(de->d_inode);
 	for (i = 0; i < e3i->blocks; i++) {
-		b = sb_bread(de->d_inode->i_sb, block_num);
-	
+		b = sb_bread(de->d_inode->i_sb, info->start_root_dir_block + i);
 		e3d = (struct emu3_dentry *)b->b_data;
-	
-		entries_per_block = 0;
-		while (entries_per_block < MAX_ENTRIES_PER_BLOCK && IS_EMU3_FILE(e3d)) {
-			char fullname[LENGTH_SHOWED_FILENAME];
-			if (e3d->type != FTYPE_NON) { //Mark as deleted files are not shown
-				get_emu3_fulldentry(fullname, e3d);
-				if (filldir(dirent, fullname, LENGTH_SHOWED_FILENAME, f->f_pos++, EMU3_I_ID(e3d), DT_REG) < 0) {
-					return 0;
+
+		for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
+			if (IS_EMU3_FILE(e3d)) {
+				char fullname[LENGTH_SHOWED_FILENAME];
+				if (e3d->type != FTYPE_DEL) { //Mark as deleted files are not shown
+					get_emu3_fulldentry(fullname, e3d);
+					if (filldir(dirent, fullname, LENGTH_SHOWED_FILENAME, f->f_pos++, EMU3_I_ID(e3d), DT_REG) < 0) {
+						return 0;
+					}
 				}
+				info->used_inodes++;
+				//Should this be moved to a run on dirty sb function?
+				info->next_available_cluster = e3d->start_cluster + e3d->clusters;
 			}
-			info->used_inodes++;
-			//Should this be moved to a run on dirty sb function?
-			info->next_available_cluster = e3d->start_cluster + e3d->clusters;
 			e3d++;
-			entries_per_block++;
 		}
 	
 		brelse(b);
-
-		if (entries_per_block < MAX_ENTRIES_PER_BLOCK) {
-			break;
-		}
-
-		block_num++;
 	}
 	
    return 0;
 }
 
-static struct buffer_head *emu3_find_entry(struct inode * dir,
-						const unsigned char * name, struct emu3_dentry ** e3d) {
-	int entries_per_block;
-	struct buffer_head *b;
-	struct emu3_inode * e3i = e3i = EMU3_I(dir);
-	int block_num = e3i->start_block;
-	int i;
-
-	for (i = 0; i < e3i->blocks; i++) {
-		b = sb_bread(dir->i_sb, block_num);
-	
-		*e3d = (struct emu3_dentry *)b->b_data;
-	
-		entries_per_block = 0;
-		while (entries_per_block < MAX_ENTRIES_PER_BLOCK && IS_EMU3_FILE(*e3d)) {
-			char fullname[LENGTH_SHOWED_FILENAME];
-			get_emu3_fulldentry(fullname, *e3d);
-			if(strcmp(name, fullname) == 0) {
-				return b;
-			}
-			(*e3d)++;
-			entries_per_block++;
-		}
-	
-		brelse(b);
-
-		if (entries_per_block < MAX_ENTRIES_PER_BLOCK)
-			break;
-
-		block_num++;
-	}
-
-	return NULL;
-}
-
 static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
 						struct nameidata *nd)
 {
-	struct inode *inode;
+	struct inode *inode = NULL;
 	struct buffer_head *b;
    	struct emu3_dentry * e3d;
+   	struct emu3_sb_info * info = EMU3_SB(dir->i_sb);
 
 	if (dentry->d_name.len > LENGTH_SHOWED_FILENAME) {
 		return ERR_PTR(-ENAMETOOLONG);
 	}
+	
+	mutex_lock(&info->lock);
+	e3d = emu3_find_dentry_by_name(dir->i_sb, dentry->d_name.name, &b);
 
-	b = emu3_find_entry(dir, dentry->d_name.name, &e3d);
-
-	if (b != NULL) {
-		inode = emu3_iget(dir->i_sb, EMU3_I_ID(e3d));
-		d_add(dentry, inode);
+	if (e3d) {
 		brelse(b);
+		inode = emu3_get_inode(dir->i_sb, EMU3_I_ID(e3d));
+		if (IS_ERR(inode)) {
+			mutex_unlock(&info->lock);
+			return ERR_CAST(inode);
+		}
 	}
+
+	d_add(dentry, inode);
+	mutex_unlock(&info->lock);
+
 	return NULL;
 }
 
@@ -149,14 +126,14 @@ static int emu3_unlink(struct inode *dir, struct dentry *dentry) {
 		return -ENAMETOOLONG;
 	}
 
-	b = emu3_find_entry(dir, dentry->d_name.name, &e3d);
+	e3d = emu3_find_dentry_by_name(dir->i_sb, dentry->d_name.name, &b);
 
-	if (b == NULL) {
+	if (e3d == NULL) {
 		return -ENOENT;
 	}
 	
 	mutex_lock(&info->lock);
-	e3d->type = FTYPE_NON;
+	e3d->type = FTYPE_DEL;
 	mark_buffer_dirty_inode(b, dir);
 	dir->i_ctime = dir->i_mtime = CURRENT_TIME_SEC;
     mark_inode_dirty(dir);

@@ -54,13 +54,13 @@
 
 #define LENGTH_SHOWED_FILENAME 21 // 20 + null char
 
-#define FTYPE_NON 0x00
+#define FTYPE_DEL 0x00 //Deleted file
 #define FTYPE_STD 0x81
-#define FTYPE_UPD 0x83
+#define FTYPE_UPD 0x83 //Used by the first file after a deleted file
 #define FTYPE_SYS 0x80
 
 #define IS_EMU3_FILE(e3d) (((e3d)->clusters > 0) && \
-	((e3d)->type == FTYPE_NON || (e3d)->type == FTYPE_STD || (e3d)->type == FTYPE_UPD || (e3d)->type == FTYPE_SYS))
+	((e3d)->type == FTYPE_DEL || (e3d)->type == FTYPE_STD || (e3d)->type == FTYPE_UPD || (e3d)->type == FTYPE_SYS))
 
 struct emu3_sb_info {
 	unsigned int blocks;
@@ -105,4 +105,11 @@ extern const struct inode_operations emu3_inode_operations_file;
 
 extern const struct address_space_operations emu3_aops;
 
-struct inode * emu3_iget(struct super_block *, unsigned long);
+struct inode * emu3_get_inode(struct super_block *, unsigned long);
+
+inline void get_emu3_fulldentry(char *, struct emu3_dentry *);
+
+struct emu3_dentry * emu3_find_dentry(struct super_block *, 
+											struct buffer_head **,
+											void *,
+											int (*)(void *, struct emu3_dentry *));

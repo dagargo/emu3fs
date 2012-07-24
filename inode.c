@@ -70,42 +70,58 @@ static void destroy_inodecache(void)
 	kmem_cache_destroy(emu3_inode_cachep);
 }
 
-//TODO: casi repetido 2 veces en dir.c
-static struct emu3_dentry * emu3_find_dentry(struct super_block *sb, unsigned long id, struct buffer_head **b)
+inline void get_emu3_fulldentry(char * fullname, struct emu3_dentry * e3d) {
+	sprintf(fullname, FILENAME_TEMPLATE, EMU3_I_ID(e3d), e3d->name);
+}
+
+static int id_comparator(void * v, struct emu3_dentry * e3d) {
+	int id = *((int*)v);
+	if (EMU3_I_ID(e3d) == id) {
+		return 0;
+	}
+	return -1;
+}
+
+struct emu3_dentry * emu3_find_dentry(struct super_block *sb, 
+											struct buffer_head **b,
+											void * v,
+											int (*comparator)(void *, struct emu3_dentry *))
 {
 	struct emu3_sb_info *info;
 	struct emu3_dentry * e3d;
-	unsigned long block_num;
+	int i, j;
 	int entries_per_block;
-	int file_count;
 
 	info = EMU3_SB(sb);
 
 	if (!info) {
 		return NULL;
 	}
-	
-	file_count = 0;
-	block_num = 0;
-	while (block_num < info->root_dir_blocks) {
-		*b = sb_bread(sb, info->start_root_dir_block + block_num);
+
+	for (i = 0; i < info->root_dir_blocks; i++) {
+		*b = sb_bread(sb, info->start_root_dir_block + i);
 	
 		e3d = (struct emu3_dentry *)(*b)->b_data;
-		entries_per_block = 0;
-		while (file_count < EMU3_MAX_FILES && entries_per_block < MAX_ENTRIES_PER_BLOCK && IS_EMU3_FILE(e3d)) {
-			file_count++;
-			entries_per_block++;
-			if (EMU3_I_ID(e3d) == id) {
-				return e3d;
+		
+		for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
+			if (IS_EMU3_FILE(e3d)) {
+				entries_per_block++;
+				if (comparator(v, e3d) == 0) {
+					return e3d;
+				}
 			}
 			e3d++;
 		}
 	
 		brelse(*b);
-		block_num++;
 	}
 	
 	return NULL;
+}
+
+static inline struct emu3_dentry * emu3_find_dentry_by_id(struct super_block *sb, unsigned long id, struct buffer_head **b)
+{
+	return emu3_find_dentry(sb, b, &id, id_comparator);
 }
 
 static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
@@ -138,11 +154,18 @@ static void emu3_put_super(struct super_block *sb)
 	}
 }
 
+static void emu3_evict_inode(struct inode *inode)
+{
+	truncate_inode_pages(&inode->i_data, 0);
+	invalidate_inode_buffers(inode);
+	end_writeback(inode);
+}
+
 static const struct super_operations emu3_super_operations = {
 	.alloc_inode	= emu3_alloc_inode,
 	.destroy_inode	= emu3_destroy_inode,
 	.write_inode	= NULL, //TODO: emu3_write_inode,
-	.evict_inode	= NULL, //TODO: emu3_evict_inode,
+	.evict_inode	= emu3_evict_inode,
 	.put_super      = emu3_put_super,
 	.statfs		    = emu3_statfs
 };
@@ -166,7 +189,7 @@ unsigned int emu3_file_block_count(struct emu3_sb_info * sb,
 	return 0;
 }
 
-struct inode * emu3_iget(struct super_block *sb, unsigned long id)
+struct inode * emu3_get_inode(struct super_block *sb, unsigned long id)
 {
 	struct inode * inode;
 	struct emu3_sb_info *info;
@@ -182,20 +205,19 @@ struct inode * emu3_iget(struct super_block *sb, unsigned long id)
 		return NULL;
 	}
 	
-	if (id != ROOT_DIR_INODE_ID) {
-	
-		e3d = emu3_find_dentry(sb, id, &b);
+	if (id == ROOT_DIR_INODE_ID) {
+		file_block_start = info->start_root_dir_block;
+		file_block_size = info->root_dir_blocks;
+		file_size = info->root_dir_blocks * EMU3_BSIZE;		
+	}
+	else {
+		e3d = emu3_find_dentry_by_id(sb, id, &b);
 	
 		if (!e3d) {
 			return ERR_PTR(-EIO);
 		}
 	
 		emu3_file_block_count(info, e3d, &file_block_start, &file_block_size, &file_size);
-	}
-	else {
-		file_block_start = info->start_root_dir_block;
-		file_block_size = info->root_dir_blocks;
-		file_size = info->root_dir_blocks*EMU3_BSIZE;
 	}
 	
 	inode = iget_locked(sb, id);
@@ -206,7 +228,7 @@ struct inode * emu3_iget(struct super_block *sb, unsigned long id)
 	if (!(inode->i_state & I_NEW)) {
 		return inode;
 	}
-	
+
 	inode->i_ino = id;
 	inode->i_mode = ((id == ROOT_DIR_INODE_ID)?S_IFDIR | S_IXUSR | S_IXGRP | S_IXOTH:S_IFREG) | S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH;
 	inode->i_uid = current_fsuid();
@@ -283,7 +305,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 						
 			sb->s_op = &emu3_super_operations;
 
-			inode = emu3_iget(sb, ROOT_DIR_INODE_ID);
+			inode = emu3_get_inode(sb, ROOT_DIR_INODE_ID);
 
 			if (!inode) {
 				err = -EIO;
