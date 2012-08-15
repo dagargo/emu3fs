@@ -73,13 +73,13 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
 						return 0;
 					}
 				}
+				//TODO: Should this be moved to a run on dirty fs sb function?
 				info->used_inodes++;
-				//Should this be moved to a run on dirty sb function?
 				info->next_available_cluster = e3d->start_cluster + e3d->clusters;
+				info->last_used_inode = EMU3_I_ID(e3d);
 			}
 			e3d++;
 		}
-	
 		brelse(b);
 	}
 	
@@ -113,6 +113,123 @@ static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
 	d_add(dentry, inode);
 	mutex_unlock(&info->lock);
 
+	return NULL;
+}
+
+static int emu3_create(struct inode *dir, struct dentry *dentry, int mode,
+                                                struct nameidata *nd)
+{
+	int err;
+	struct inode *inode;
+	struct super_block *s = dir->i_sb;
+	struct emu3_sb_info *info = EMU3_SB(s);
+	unsigned int ino;
+
+	inode = new_inode(s);
+	if (!inode) {
+		return -ENOSPC;
+	}
+	mutex_lock(&info->lock);
+	
+	err = emu3_add_entry(dir, dentry->d_name.name, dentry->d_name.len, &ino);
+
+	if (err)  {
+	    mutex_unlock(&info->lock);
+	    return err;
+	}
+	
+	inode_init_owner(inode, dir, mode);
+	inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME_SEC;
+	inode->i_blocks = 0;
+	inode->i_op = &emu3_inode_operations_file;
+	inode->i_fop = &emu3_file_operations_file;
+	inode->i_mapping->a_ops = &emu3_aops;
+	inode->i_ino = ino;
+	insert_inode_hash(inode);
+	mark_inode_dirty(inode);
+	mutex_unlock(&info->lock);
+	d_instantiate(dentry, inode);
+	return 0;
+}
+
+int emu3_add_entry(struct inode *dir, const unsigned char *name, int namelen, unsigned int * id) {
+	struct buffer_head *b;
+   	struct emu3_dentry * e3d;
+   	struct super_block *sb = dir->i_sb;
+   	unsigned int start_cluster;
+
+	if (!namelen) {
+		return -ENOENT;
+	}
+	
+	if (namelen > LENGTH_FILENAME) {
+		return -ENAMETOOLONG;
+	}
+	
+	e3d = emu3_find_empty_dentry(sb, &b, id, &start_cluster);
+
+	if (!e3d) {
+		return -ENOSPC;		
+	}	
+	//TODO: fix timestamps
+	memcpy(e3d->name, name, namelen);
+	memset(&e3d->name[namelen], ' ', LENGTH_FILENAME - namelen);
+	e3d->id = *id;
+	e3d->start_cluster = cpu_to_le16(start_cluster);
+	e3d->clusters = cpu_to_le16(1);
+	e3d->blocks = cpu_to_le16(1);
+	e3d->bytes = cpu_to_le16(0);
+	e3d->type = FTYPE_STD;
+    dir->i_mtime = CURRENT_TIME_SEC;
+    mark_buffer_dirty_inode(b, dir);
+    brelse(b);
+	return 0;
+}
+
+struct emu3_dentry * emu3_find_empty_dentry(struct super_block *sb, 
+											struct buffer_head **b,
+											unsigned int * id,
+											unsigned int * start_cluster)
+{
+	struct emu3_sb_info *info;
+	struct emu3_dentry * e3d;
+	int i, j, k;
+	char ids[EMU3_MAX_REGULAR_FILE];
+	
+	for (i = 0; i < EMU3_MAX_REGULAR_FILE; i++) {
+		ids[i] = 0;
+	}
+
+	info = EMU3_SB(sb);
+
+	if (!info) {
+		return NULL;
+	}
+
+	for (i = 0; i < info->root_dir_blocks; i++) {
+		*b = sb_bread(sb, info->start_root_dir_block + i);
+	
+		e3d = (struct emu3_dentry *)(*b)->b_data;
+		
+		for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
+			if (IS_EMU3_FILE(e3d)) {
+				ids[e3d->id] = 1;
+				*start_cluster = e3d->start_cluster + e3d->clusters;
+			}
+			else {
+				for (k = 0; k < EMU3_MAX_REGULAR_FILE; k++) {
+					if (ids[k] == 0) {
+						*id = k;
+						break;
+					}
+				}		
+				return e3d;
+			}
+			e3d++;
+		}
+		brelse(*b);
+	}
+	
 	return NULL;
 }
 
@@ -153,7 +270,7 @@ const struct file_operations emu3_file_operations_dir = {
 };
 
 const struct inode_operations emu3_inode_operations_dir = {
-	.create	= NULL,
+	.create	= emu3_create,
 	.lookup	= emu3_lookup,
 	.link   = NULL,
 	.unlink	= emu3_unlink,

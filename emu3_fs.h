@@ -73,7 +73,7 @@ struct emu3_sb_info {
 	unsigned int clusters;
 	unsigned int used_inodes;
 	unsigned int next_available_cluster;
-	//TODO: inode map?
+	unsigned int last_used_inode;
 	struct mutex lock;
 };
 
@@ -110,6 +110,15 @@ struct inode * emu3_get_inode(struct super_block *, unsigned long);
 inline void get_emu3_fulldentry(char *, struct emu3_dentry *);
 
 struct emu3_dentry * emu3_find_dentry(struct super_block *, 
+									  struct buffer_head **,
+									  void *,
+									  int (*)(void *, struct emu3_dentry *));
+
+int emu3_add_entry(struct inode *, const unsigned char *, int, unsigned int *);
+			
+struct emu3_dentry * emu3_find_empty_dentry(struct super_block *, 
 											struct buffer_head **,
-											void *,
-											int (*)(void *, struct emu3_dentry *));
+											unsigned int *,
+											unsigned int *);
+											
+											
