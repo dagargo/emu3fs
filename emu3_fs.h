@@ -38,6 +38,7 @@
 
 #define EMU3_I(inode) ((struct emu3_inode *)container_of(inode, struct emu3_inode, vfs_inode))
 
+//This is needed because no inode id can be zero
 #define EMU3_I_ID(e3d) ((e3d->id) + 1)
 
 #define EMU3_MAX_REGULAR_FILE 100
@@ -59,8 +60,14 @@
 #define FTYPE_UPD 0x83 //Used by the first file after a deleted file
 #define FTYPE_SYS 0x80
 
-#define IS_EMU3_FILE(e3d) (((e3d)->clusters > 0) && \
-	((e3d)->type == FTYPE_DEL || (e3d)->type == FTYPE_STD || (e3d)->type == FTYPE_UPD || (e3d)->type == FTYPE_SYS))
+#define IS_EMU3_FILE(e3d) 		\
+	(((e3d)->clusters > 0) &&	\
+	(							\
+	(e3d)->type == FTYPE_DEL || \
+	(e3d)->type == FTYPE_STD || \
+	(e3d)->type == FTYPE_UPD || \
+	(e3d)->type == FTYPE_SYS)	\
+	)
 
 struct emu3_sb_info {
 	unsigned int blocks;

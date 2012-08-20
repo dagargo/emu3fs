@@ -70,10 +70,6 @@ static void destroy_inodecache(void)
 	kmem_cache_destroy(emu3_inode_cachep);
 }
 
-inline void get_emu3_fulldentry(char * fullname, struct emu3_dentry * e3d) {
-	sprintf(fullname, FILENAME_TEMPLATE, EMU3_I_ID(e3d), e3d->name);
-}
-
 static int id_comparator(void * v, struct emu3_dentry * e3d) {
 	int id = *((int*)v);
 	if (EMU3_I_ID(e3d) == id) {
@@ -87,12 +83,9 @@ struct emu3_dentry * emu3_find_dentry(struct super_block *sb,
 											void * v,
 											int (*comparator)(void *, struct emu3_dentry *))
 {
-	struct emu3_sb_info *info;
+	struct emu3_sb_info *info = EMU3_SB(sb);
 	struct emu3_dentry * e3d;
 	int i, j;
-	int entries_per_block;
-
-	info = EMU3_SB(sb);
 
 	if (!info) {
 		return NULL;
@@ -104,8 +97,7 @@ struct emu3_dentry * emu3_find_dentry(struct super_block *sb,
 		e3d = (struct emu3_dentry *)(*b)->b_data;
 		
 		for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
-			if (IS_EMU3_FILE(e3d)) {
-				entries_per_block++;
+			if (IS_EMU3_FILE(e3d) && e3d->type != FTYPE_DEL) {
 				if (comparator(v, e3d) == 0) {
 					return e3d;
 				}
@@ -132,7 +124,7 @@ static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
 	buf->f_type = EMU3_FS_TYPE;
 	buf->f_bsize = EMU3_BSIZE;
 	buf->f_blocks = info->clusters * info->blocks_per_cluster;
-	buf->f_bfree = (info->clusters - info->next_available_cluster) * info->blocks_per_cluster;
+	buf->f_bfree = (info->clusters - info->next_available_cluster - 1) * info->blocks_per_cluster;
 	buf->f_bavail = buf->f_bfree;
 	buf->f_files = info->used_inodes;
 	buf->f_ffree = EMU3_MAX_FILES - info->used_inodes;
