@@ -20,18 +20,27 @@
 
 #include "emu3_fs.h"
 
-static int name_comparator(void * v, struct emu3_dentry * e3d) {
-	char name[LENGTH_SHOWED_FILENAME];
-	sprintf(name, FILENAME_TEMPLATE, e3d->id, e3d->name);
-	if(strncmp(name, (char *)v, LENGTH_SHOWED_FILENAME) == 0) {
-		return 0;
-	}
-	return -1;
+int name_comparator(void * v, struct emu3_dentry * e3d) {
+	struct dentry *dentry = v;
+	int size = strnlen(dentry->d_name.name, LENGTH_FILENAME);
+	return strncmp(e3d->name, dentry->d_name.name, size);
 }
 
-static inline struct emu3_dentry * emu3_find_dentry_by_name(struct super_block *sb, const unsigned char * name, struct buffer_head **b)
+char * emu3_filename_length(const char * filename, int * size) {
+	char * index = &filename[LENGTH_FILENAME - 1];
+
+	for (*size = LENGTH_FILENAME; *size > 0; (*size)--) {
+		if (*index != ' ') {
+			return index;
+		}
+		index--;
+	}
+	return NULL;
+}
+
+static inline struct emu3_dentry * emu3_find_dentry_by_name(struct super_block *sb, struct dentry *dentry, struct buffer_head **b)
 {
-	return emu3_find_dentry(sb, b, (void *) name, name_comparator);
+	return emu3_find_dentry(sb, b, (void *) dentry, name_comparator);
 }
 
 static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
@@ -62,10 +71,10 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
 
 		for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
 			if (IS_EMU3_FILE(e3d)) {
-				char fullname[LENGTH_SHOWED_FILENAME];
 				if (e3d->type != FTYPE_DEL) { //Mark as deleted files are not shown
-					sprintf(fullname, FILENAME_TEMPLATE, e3d->id, e3d->name);
-					if (filldir(dirent, fullname, LENGTH_SHOWED_FILENAME, f->f_pos++, EMU3_I_ID(e3d), DT_REG) < 0) {
+					int size;
+					emu3_filename_length(e3d->name, &size);
+					if (filldir(dirent, e3d->name, size, f->f_pos++, EMU3_I_ID(e3d), DT_REG) < 0) {
 						return 0;
 					}
 				}
@@ -89,12 +98,12 @@ static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
    	struct emu3_dentry * e3d;
    	struct emu3_sb_info * info = EMU3_SB(dir->i_sb);
 
-	if (dentry->d_name.len > LENGTH_SHOWED_FILENAME) {
+	if (dentry->d_name.len > LENGTH_FILENAME) {
 		return ERR_PTR(-ENAMETOOLONG);
 	}
 	
 	mutex_lock(&info->lock);
-	e3d = emu3_find_dentry_by_name(dir->i_sb, dentry->d_name.name, &b);
+	e3d = emu3_find_dentry_by_name(dir->i_sb, dentry, &b);
 
 	if (e3d) {
 		inode = emu3_get_inode(dir->i_sb, EMU3_I_ID(e3d));
@@ -108,7 +117,7 @@ static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
 	mutex_unlock(&info->lock);
 	
 	d_add(dentry, inode);
-	d_invalidate(dentry);
+	//d_invalidate(dentry);
 
 	return NULL;
 }
@@ -252,11 +261,11 @@ static int emu3_unlink(struct inode *dir, struct dentry *dentry) {
 	struct inode *inode = dentry->d_inode;
     struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
 
-	if (dentry->d_name.len > LENGTH_SHOWED_FILENAME) {
+	if (dentry->d_name.len > LENGTH_FILENAME) {
 		return -ENAMETOOLONG;
 	}
 
-	e3d = emu3_find_dentry_by_name(dir->i_sb, dentry->d_name.name, &b);
+	e3d = emu3_find_dentry_by_name(dir->i_sb, dentry, &b);
 
 	if (e3d == NULL) {
 		return -ENOENT;

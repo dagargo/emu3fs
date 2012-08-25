@@ -51,10 +51,6 @@
 
 #define LENGTH_FILENAME 16
 
-#define FILENAME_TEMPLATE "B%.2d %.16s"
-
-#define LENGTH_SHOWED_FILENAME 21 // 20 + null char
-
 #define FTYPE_DEL 0x00 //Deleted file
 #define FTYPE_STD 0x81
 #define FTYPE_UPD 0x83 //Used by the first file after a deleted file
@@ -128,4 +124,4 @@ struct emu3_dentry * emu3_find_empty_dentry(struct super_block *,
 											unsigned int *,
 											unsigned int *);
 											
-											
+char * emu3_filename_length(const char *, int *);

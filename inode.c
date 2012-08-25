@@ -130,7 +130,7 @@ static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
 	buf->f_ffree = EMU3_MAX_FILES - info->used_inodes;
 	buf->f_fsid.val[0] = (u32)id;
 	buf->f_fsid.val[1] = (u32)(id >> 32);
-	buf->f_namelen = LENGTH_SHOWED_FILENAME;
+	buf->f_namelen = LENGTH_FILENAME;
 	return 0;
 }
 
