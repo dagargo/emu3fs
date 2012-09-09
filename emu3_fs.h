@@ -40,6 +40,7 @@
 
 //This is needed because no inode id can be zero
 #define EMU3_I_ID(e3d) ((e3d->id) + 1)
+#define TO_EMU3_ID(id) (id==ROOT_DIR_INODE_ID?id:(id-1))
 
 #define EMU3_MAX_REGULAR_FILE 100
 
@@ -76,7 +77,7 @@ struct emu3_sb_info {
 	unsigned int clusters;
 	unsigned int used_inodes;
 	unsigned int next_available_cluster;
-	unsigned int last_used_inode;
+	unsigned int last_inode;
 	struct mutex lock;
 };
 
@@ -93,8 +94,11 @@ struct emu3_dentry {
 };
 
 struct emu3_inode {
-	unsigned long start_block;
-	unsigned long blocks;
+    unsigned int start_block;
+    unsigned int total_blocks;
+	unsigned short clusters;
+	unsigned short blocks;
+	unsigned short bytes;
 	struct inode vfs_inode;
 };
 
@@ -124,4 +128,4 @@ struct emu3_dentry * emu3_find_empty_dentry(struct super_block *,
 											unsigned int *,
 											unsigned int *);
 											
-char * emu3_filename_length(const char *, int *);
+const char * emu3_filename_length(const char *, int *);

@@ -26,8 +26,8 @@ int name_comparator(void * v, struct emu3_dentry * e3d) {
 	return strncmp(e3d->name, dentry->d_name.name, size);
 }
 
-char * emu3_filename_length(const char * filename, int * size) {
-	char * index = &filename[LENGTH_FILENAME - 1];
+const char * emu3_filename_length(const char * filename, int * size) {
+    const char * index = &filename[LENGTH_FILENAME - 1];
 
 	for (*size = LENGTH_FILENAME; *size > 0; (*size)--) {
 		if (*index != ' ') {
@@ -80,7 +80,7 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
 				}
 				info->used_inodes++;
 				info->next_available_cluster = e3d->start_cluster + e3d->clusters;
-				info->last_used_inode = e3d->id;
+				info->last_inode = e3d->id;
 			}
 			e3d++;
 		}
@@ -198,7 +198,7 @@ int emu3_add_entry(struct inode *dir, const unsigned char *name, int namelen, un
 
 	info->used_inodes++;
 	info->next_available_cluster = start_cluster;
-	info->last_used_inode = *id;
+	info->last_inode = e3d->id;
 
 	return 0;
 }
@@ -264,6 +264,8 @@ static int emu3_unlink(struct inode *dir, struct dentry *dentry) {
 	if (dentry->d_name.len > LENGTH_FILENAME) {
 		return -ENAMETOOLONG;
 	}
+
+    //TODO: add case when deleting the last inode
 
 	e3d = emu3_find_dentry_by_name(dir->i_sb, dentry, &b);
 
