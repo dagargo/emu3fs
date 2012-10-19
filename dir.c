@@ -122,7 +122,7 @@ static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
 	return NULL;
 }
 
-static int emu3_create(struct inode *dir, struct dentry *dentry, int mode,
+static int emu3_create(struct inode *dir, struct dentry *dentry, umode_t mode,
                                                 struct nameidata *nd)
 {
 	int err;

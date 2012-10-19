@@ -160,7 +160,7 @@ static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 	    return 0;
 	}
 	
-	printk("Last used inode is %d. Writing to inode %d (kernel %d)...\n", info->last_inode, ino, inode->i_ino);
+	printk("Last used inode is %d. Writing to inode %d (kernel %ld)...\n", info->last_inode, ino, inode->i_ino);
 	
 	if (ino != info->last_inode) {
 	    return -ENOSPC;
@@ -199,7 +199,7 @@ static void emu3_evict_inode(struct inode *inode)
 {
 	truncate_inode_pages(&inode->i_data, 0);
 	invalidate_inode_buffers(inode);
-	end_writeback(inode);
+	clear_inode(inode);
 }
 
 static const struct super_operations emu3_super_operations = {
@@ -369,7 +369,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 				err = -EIO;
 			}
 			else {
-		    	sb->s_root = d_alloc_root(inode);
+		    	sb->s_root = d_make_root(inode);
 		    	if (!sb->s_root) {
 		            iput(inode);
 					err = -EIO;
