@@ -39,7 +39,6 @@ static struct inode *emu3_alloc_inode(struct super_block *sb)
 static void emu3_i_callback(struct rcu_head *head)
 {
 	struct inode *inode = container_of(head, struct inode, i_rcu);
-	INIT_LIST_HEAD(&inode->i_dentry);
 	kmem_cache_free(emu3_inode_cachep, EMU3_I(inode));
 }
 
@@ -302,6 +301,9 @@ struct inode * emu3_get_inode(struct super_block *sb, unsigned long id)
 	emu3_get_file_geom(info, file_size, &e3i->clusters, &e3i->blocks, &e3i->bytes);
 	e3i->start_block = file_block_start;
 	e3i->total_blocks = file_block_size;
+
+	printk("start_block %d, total_blocks %d\n", file_block_start, file_block_size);
+
 	if (id != ROOT_DIR_INODE_ID) {
 		inode->i_mapping->a_ops = &emu3_aops;	
 		brelse(b);
@@ -346,7 +348,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 		else {
 			parameters = (unsigned int *) e3sb;
 			
-			info->blocks = cpu_to_le32(parameters[1]);
+			info->blocks = cpu_to_le32(parameters[1]); //TODO: add 1 ???
 			info->start_info_block = cpu_to_le32(parameters[2]);
 			info->info_blocks = cpu_to_le32(parameters[3]);
 			info->start_root_dir_block = cpu_to_le32(parameters[4]);

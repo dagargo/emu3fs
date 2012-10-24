@@ -152,6 +152,13 @@ static int emu3_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	inode->i_fop = &emu3_file_operations_file;
 	inode->i_mapping->a_ops = &emu3_aops;
 	inode->i_ino = ino + 1;
+	//TODO: next_available_cluster is useful???
+	//TODO: the line below is copied from inode.c
+    EMU3_I(inode)->start_block = ((info->next_available_cluster - 1) * info->blocks_per_cluster) + info->start_data_block; //WoW!!!
+    EMU3_I(inode)->total_blocks = 1;
+    EMU3_I(inode)->clusters = 1;
+    EMU3_I(inode)->blocks = 1;
+    EMU3_I(inode)->bytes = 0;
 	insert_inode_hash(inode);
 	mark_inode_dirty(inode);
 	mutex_unlock(&info->lock);

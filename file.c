@@ -33,15 +33,50 @@ const struct file_operations emu3_file_operations_file = {
 static int emu3_get_block(struct inode *inode, sector_t block,
 			struct buffer_head *bh_result, int create)
 {
+	unsigned long phys;
 	struct super_block *sb = inode->i_sb;
+	struct emu3_sb_info *info = EMU3_SB(sb);
 	struct emu3_inode * e3i = EMU3_I(inode);
-
-	if (block <= e3i->total_blocks) {
-		map_bh(bh_result, sb, e3i->start_block + block);
+	unsigned int ino = TO_EMU3_ID(inode->i_ino);
+	
+	phys = e3i->start_block + block;
+	if (!create) {
+		if (block < e3i->total_blocks) {
+			printk("c=%d, b=%08lx, phys=%09lx (granted)\n",
+                                create, (unsigned long)block, phys);
+			map_bh(bh_result, sb, phys);
+		}
 		return 0;
 	}
+
+	if (block < e3i->total_blocks) {
+		printk("c=%d, b=%08lx, phys=%08lx (interim block granted)\n", 
+				create, (unsigned long)block, phys);
+		map_bh(bh_result, sb, phys);
+		return 0;
+	}
+
+	//block >= e3i->total_blocks
+
+	if (phys >= info->blocks) {
+		return -ENOSPC;
+	}
+
+	if (ino != info->last_inode) {
+		return -ENOSPC;
+	}
 	
-	return -ENOSPC;
+	mutex_lock(&info->lock);
+	printk("c=%d, b=%08lx, phys=%08lx (simple extension)\n", 
+			create, (unsigned long)block, phys);
+	//add_block(e3i); //TODO!!!!!!!!!!
+	e3i->blocks++; //TODO
+	e3i->bytes = 10;
+	map_bh(bh_result, sb, phys);
+	mark_inode_dirty(inode);
+	mutex_unlock(&info->lock);
+	
+	return 0;
 }
 
 static int emu3_readpage(struct file *file, struct page *page)
@@ -58,31 +93,8 @@ static int emu3_write_begin(struct file *file, struct address_space *mapping,
 			loff_t pos, unsigned len, unsigned flags,
 			struct page **pagep, void **fsdata)
 {
-	int ret;
-/*
-    struct emu3_sb_info *info = EMU3_SB(fileinode->i_sb);	
-	mutex_lock(&info->lock);
-*/
-	ret = block_write_begin(mapping, pos, len, flags, pagep,
+	return block_write_begin(mapping, pos, len, flags, pagep,
 				emu3_get_block);
-	if (unlikely(ret)) {
-		loff_t isize = mapping->host->i_size;
-		if (pos + len > isize) {
-			vmtruncate(mapping->host, isize);
-		}
-		
-	}
-
-	return ret;
-}
-
-int emu3_write_end(struct file *file, struct address_space *mapping,
-                         loff_t pos, unsigned len, unsigned copied,
-                         struct page *page, void *fsdata)
-{
-    //TODO: add mutex_unlock  
-
-    return generic_write_end(file, mapping, pos, len, copied, page, fsdata);
 }
 
 static sector_t emu3_bmap(struct address_space *mapping, sector_t block)
@@ -94,7 +106,7 @@ const struct address_space_operations emu3_aops = {
 	.readpage	 = emu3_readpage,
 	.writepage	 = emu3_writepage,
 	.write_begin = emu3_write_begin,
-	.write_end	 = emu3_write_end,
+	.write_end	 = generic_write_end,
 	.bmap		 = emu3_bmap,
 };
 

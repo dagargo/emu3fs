@@ -84,7 +84,7 @@ struct emu3_sb_info {
 struct emu3_dentry {
 	char name[16];
 	unsigned char unknown;
-	unsigned char id;
+	unsigned char id; //This can be 0
 	unsigned short start_cluster;
 	unsigned short clusters;
 	unsigned short blocks;
@@ -129,3 +129,9 @@ struct emu3_dentry * emu3_find_empty_dentry(struct super_block *,
 											unsigned int *);
 											
 const char * emu3_filename_length(const char *, int *);
+
+void emu3_get_file_geom(struct emu3_sb_info *, 
+                        unsigned int, 
+                        unsigned short *, 
+                        unsigned short *, 
+                        unsigned short *);
