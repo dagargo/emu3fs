@@ -94,11 +94,7 @@ struct emu3_dentry {
 };
 
 struct emu3_inode {
-    unsigned int start_block;
-    unsigned int total_blocks;
-	unsigned short clusters;
-	unsigned short blocks;
-	unsigned short bytes;
+    unsigned int start_cluster;
 	struct inode vfs_inode;
 };
 

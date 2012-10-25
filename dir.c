@@ -51,7 +51,7 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
    	struct buffer_head *b;
    	struct emu3_dentry * e3d;
    	struct emu3_inode * e3i;
-   	
+
     if (de->d_inode->i_ino != ROOT_DIR_INODE_ID)
     	return -EBADF;
 
@@ -63,9 +63,8 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
     if (filldir(dirent, "..", 2, f->f_pos++, de->d_parent->d_inode->i_ino, DT_DIR) < 0)
     	return 0;
 
-	info->used_inodes = 0;
 	e3i = EMU3_I(de->d_inode);
-	for (i = 0; i < e3i->blocks; i++) {
+	for (i = 0; i < de->d_inode->i_blocks; i++) {
 		b = sb_bread(de->d_inode->i_sb, info->start_root_dir_block + i);
 		e3d = (struct emu3_dentry *)b->b_data;
 
@@ -78,9 +77,6 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
 						return 0;
 					}
 				}
-				info->used_inodes++;
-				info->next_available_cluster = e3d->start_cluster + e3d->clusters;
-				info->last_inode = e3d->id;
 			}
 			e3d++;
 		}
@@ -130,6 +126,7 @@ static int emu3_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	struct super_block *sb = dir->i_sb;
 	struct emu3_sb_info *info = EMU3_SB(sb);
 	unsigned int ino;
+	unsigned int start_cluster;
 
 	inode = new_inode(sb);
 	if (!inode) {
@@ -137,6 +134,8 @@ static int emu3_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	}
 	
 	mutex_lock(&info->lock);
+	
+	start_cluster = info->next_available_cluster;
 	
 	err = emu3_add_entry(dir, dentry->d_name.name, dentry->d_name.len, &ino);
 
@@ -152,13 +151,8 @@ static int emu3_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	inode->i_fop = &emu3_file_operations_file;
 	inode->i_mapping->a_ops = &emu3_aops;
 	inode->i_ino = ino + 1;
-	//TODO: next_available_cluster is useful???
-	//TODO: the line below is copied from inode.c
-    EMU3_I(inode)->start_block = ((info->next_available_cluster - 1) * info->blocks_per_cluster) + info->start_data_block; //WoW!!!
-    EMU3_I(inode)->total_blocks = 1;
-    EMU3_I(inode)->clusters = 1;
-    EMU3_I(inode)->blocks = 1;
-    EMU3_I(inode)->bytes = 0;
+    EMU3_I(inode)->start_cluster = start_cluster;
+    info->last_inode = ino;
 	insert_inode_hash(inode);
 	mark_inode_dirty(inode);
 	mutex_unlock(&info->lock);
@@ -204,7 +198,7 @@ int emu3_add_entry(struct inode *dir, const unsigned char *name, int namelen, un
     brelse(b);
 
 	info->used_inodes++;
-	info->next_available_cluster = start_cluster;
+	info->next_available_cluster = start_cluster + 1;
 	info->last_inode = e3d->id;
 
 	return 0;

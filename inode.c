@@ -72,7 +72,7 @@ static void destroy_inodecache(void)
 
 static int id_comparator(void * v, struct emu3_dentry * e3d) {
 	int id = *((int*)v);
-	if (EMU3_I_ID(e3d) == id) {
+	if (e3d->id == id) {
 		return 0;
 	}
 	return -1;
@@ -161,6 +161,8 @@ static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 	
 	printk("Last used inode is %d. Writing to inode %d (kernel %ld)...\n", info->last_inode, ino, inode->i_ino);
 	
+	mutex_lock(&info->lock);
+
 	if (ino != info->last_inode) {
 	    return -ENOSPC;
 	}
@@ -170,14 +172,11 @@ static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 		return PTR_ERR(e3d);
 	}
 
-	mutex_lock(&info->lock);
-
     e3i = EMU3_I(inode);
 
-    e3d->start_cluster = info->next_available_cluster;
-	e3d->clusters = e3i->clusters;
-	e3d->blocks = e3i->blocks;
-	e3d->bytes = e3i->bytes;
+	printk("Storing file (size %ld)...\n", inode->i_size); 
+	emu3_get_file_geom(info, inode->i_size, &e3d->clusters, &e3d->blocks, &e3d->bytes);
+    e3d->start_cluster = e3i->start_cluster;
 	
 	info->next_available_cluster = e3d->start_cluster + e3d->clusters;
 
@@ -239,7 +238,7 @@ void emu3_get_file_geom(struct emu3_sb_info *info,
     
     *clusters = (size / bytes_per_cluster) + 1;
 	clusters_rem = size % bytes_per_cluster;
-	*blocks = clusters_rem / EMU3_BSIZE;
+	*blocks = (clusters_rem / EMU3_BSIZE) + 1;
 	*bytes = clusters_rem % EMU3_BSIZE;
 }
 
@@ -247,7 +246,7 @@ struct inode * emu3_get_inode(struct super_block *sb, unsigned long id)
 {
 	struct inode * inode;
 	struct emu3_sb_info *info;
-	struct emu3_dentry * e3d;
+	struct emu3_dentry * e3d = NULL;
 	struct emu3_inode * e3i;
 	int file_block_size;
 	int file_block_start;
@@ -266,7 +265,7 @@ struct inode * emu3_get_inode(struct super_block *sb, unsigned long id)
 		file_size = info->root_dir_blocks * EMU3_BSIZE;		
 	}
 	else {
-		e3d = emu3_find_dentry_by_id(sb, id, &b);
+		e3d = emu3_find_dentry_by_id(sb, TO_EMU3_ID(id), &b);
 	
 		if (!e3d) {
 			return ERR_PTR(-EIO);
@@ -298,9 +297,9 @@ struct inode * emu3_get_inode(struct super_block *sb, unsigned long id)
 	inode->i_mtime = CURRENT_TIME;
 	inode->i_ctime = CURRENT_TIME;
 	e3i = EMU3_I(inode);
-	emu3_get_file_geom(info, file_size, &e3i->clusters, &e3i->blocks, &e3i->bytes);
-	e3i->start_block = file_block_start;
-	e3i->total_blocks = file_block_size;
+	if (e3d != NULL) {
+		e3i->start_cluster = e3d->start_cluster;
+	}
 
 	printk("start_block %d, total_blocks %d\n", file_block_start, file_block_size);
 
@@ -357,6 +356,10 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 			info->blocks_per_cluster = (0x10000 << (e3sb[0x28] - 1)) / EMU3_BSIZE;
 			info->clusters = cpu_to_le32(parameters[9]);
 			//TODO: check clusters ok. Seems so...
+			//TODO: these values mut be read from disk!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			info->used_inodes = 0;
+			info->next_available_cluster = 1;
+			info->last_inode = -1;
 
 			printk("%s: %d blocks, %d clusters, b/c %d.\n", EMU3_MODULE_NAME, info->blocks, info->clusters, info->blocks_per_cluster);
 			printk("%s: info init sector @ %d + %d sectors.\n", EMU3_MODULE_NAME, info->start_info_block, info->info_blocks);

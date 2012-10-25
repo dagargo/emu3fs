@@ -39,9 +39,10 @@ static int emu3_get_block(struct inode *inode, sector_t block,
 	struct emu3_inode * e3i = EMU3_I(inode);
 	unsigned int ino = TO_EMU3_ID(inode->i_ino);
 	
-	phys = e3i->start_block + block;
+	//TODO: make a function
+	phys = ((e3i->start_cluster - 1) * info->blocks_per_cluster) + info->start_data_block + block;
 	if (!create) {
-		if (block < e3i->total_blocks) {
+		if (block < inode->i_blocks) {
 			printk("c=%d, b=%08lx, phys=%09lx (granted)\n",
                                 create, (unsigned long)block, phys);
 			map_bh(bh_result, sb, phys);
@@ -49,7 +50,7 @@ static int emu3_get_block(struct inode *inode, sector_t block,
 		return 0;
 	}
 
-	if (block < e3i->total_blocks) {
+	if (block < inode->i_blocks) {
 		printk("c=%d, b=%08lx, phys=%08lx (interim block granted)\n", 
 				create, (unsigned long)block, phys);
 		map_bh(bh_result, sb, phys);
@@ -69,9 +70,6 @@ static int emu3_get_block(struct inode *inode, sector_t block,
 	mutex_lock(&info->lock);
 	printk("c=%d, b=%08lx, phys=%08lx (simple extension)\n", 
 			create, (unsigned long)block, phys);
-	//add_block(e3i); //TODO!!!!!!!!!!
-	e3i->blocks++; //TODO
-	e3i->bytes = 10;
 	map_bh(bh_result, sb, phys);
 	mark_inode_dirty(inode);
 	mutex_unlock(&info->lock);
