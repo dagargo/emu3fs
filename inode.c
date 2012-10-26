@@ -158,23 +158,24 @@ static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 	if (ino == ROOT_DIR_INODE_ID) {
 	    return 0;
 	}
-	
-	printk("Last used inode is %d. Writing to inode %d (kernel %ld)...\n", info->last_inode, ino, inode->i_ino);
-	
+		
 	mutex_lock(&info->lock);
 
+	printk("Last used inode is %d. Writing to inode %d (kernel %ld)...\n", info->last_inode, ino, inode->i_ino);
+
 	if (ino != info->last_inode) {
+		mutex_unlock(&info->lock);
 	    return -ENOSPC;
 	}
 	
     e3d = emu3_find_dentry_by_id(inode->i_sb, ino, &bh);
 	if (!e3d) {
+		mutex_unlock(&info->lock);
 		return PTR_ERR(e3d);
 	}
 
     e3i = EMU3_I(inode);
 
-	printk("Storing file (size %ld)...\n", inode->i_size); 
 	emu3_get_file_geom(info, inode->i_size, &e3d->clusters, &e3d->blocks, &e3d->bytes);
     e3d->start_cluster = e3i->start_cluster;
 	
@@ -183,8 +184,9 @@ static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 	mark_buffer_dirty(bh);
 	if (wbc->sync_mode == WB_SYNC_ALL) {
 		sync_dirty_buffer(bh);
-		if (buffer_req(bh) && !buffer_uptodate(bh))
+		if (buffer_req(bh) && !buffer_uptodate(bh)) {
 			err = -EIO;
+		}
 	}
 	
 	brelse(bh);
@@ -321,6 +323,9 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 	struct inode * inode;
 	int err = 0;
 	unsigned int * parameters;
+	struct emu3_dentry * e3d;
+	struct buffer_head *b;
+	int i, j;
 
 	if (sb_set_blocksize(sb, EMU3_BSIZE) != EMU3_BSIZE) {
 		printk(KERN_ERR "%s Impossible to mount. Linux does not allow 512B block size on this device.", EMU3_ERROR_MSG);
@@ -356,15 +361,35 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 			info->blocks_per_cluster = (0x10000 << (e3sb[0x28] - 1)) / EMU3_BSIZE;
 			info->clusters = cpu_to_le32(parameters[9]);
 			//TODO: check clusters ok. Seems so...
-			//TODO: these values mut be read from disk!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			//We need to calculate some things here.
+			info->last_inode = -1;
 			info->used_inodes = 0;
 			info->next_available_cluster = 1;
-			info->last_inode = -1;
+
+			for (i = 0; i < info->root_dir_blocks; i++) {
+				b = sb_bread(sb, info->start_root_dir_block + i);
+	
+				e3d = (struct emu3_dentry *)b->b_data;
+		
+				for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
+					if (IS_EMU3_FILE(e3d)) {
+						if (e3d->type != FTYPE_DEL)  {
+							info->last_inode = e3d->id;
+						}
+						info->used_inodes++;
+						info->next_available_cluster = e3d->start_cluster + e3d->clusters;
+					}
+					e3d++;
+				}
+				brelse(b);
+			}
+			//Calculations done.
 
 			printk("%s: %d blocks, %d clusters, b/c %d.\n", EMU3_MODULE_NAME, info->blocks, info->clusters, info->blocks_per_cluster);
 			printk("%s: info init sector @ %d + %d sectors.\n", EMU3_MODULE_NAME, info->start_info_block, info->info_blocks);
 			printk("%s: root init sector @ %d + %d sectors.\n", EMU3_MODULE_NAME, info->start_root_dir_block, info->root_dir_blocks);
 			printk("%s: data init sector @ %d + %d clusters.\n", EMU3_MODULE_NAME, info->start_data_block, info->clusters);
+			printk("%s: last_inode = %d, used_inodes = %d, next_available_cluster = %d.\n", EMU3_MODULE_NAME, info->last_inode, info->used_inodes, info->next_available_cluster);
 						
 			sb->s_op = &emu3_super_operations;
 

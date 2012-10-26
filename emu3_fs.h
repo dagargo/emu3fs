@@ -84,7 +84,7 @@ struct emu3_sb_info {
 struct emu3_dentry {
 	char name[16];
 	unsigned char unknown;
-	unsigned char id; //This can be 0
+	unsigned char id; //This can be 0. No inode id in linux can be 0.
 	unsigned short start_cluster;
 	unsigned short clusters;
 	unsigned short blocks;
@@ -121,7 +121,6 @@ int emu3_add_entry(struct inode *, const unsigned char *, int, unsigned int *);
 			
 struct emu3_dentry * emu3_find_empty_dentry(struct super_block *, 
 											struct buffer_head **,
-											unsigned int *,
 											unsigned int *);
 											
 const char * emu3_filename_length(const char *, int *);

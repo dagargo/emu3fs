@@ -43,16 +43,12 @@ static int emu3_get_block(struct inode *inode, sector_t block,
 	phys = ((e3i->start_cluster - 1) * info->blocks_per_cluster) + info->start_data_block + block;
 	if (!create) {
 		if (block < inode->i_blocks) {
-			printk("c=%d, b=%08lx, phys=%09lx (granted)\n",
-                                create, (unsigned long)block, phys);
 			map_bh(bh_result, sb, phys);
 		}
 		return 0;
 	}
 
 	if (block < inode->i_blocks) {
-		printk("c=%d, b=%08lx, phys=%08lx (interim block granted)\n", 
-				create, (unsigned long)block, phys);
 		map_bh(bh_result, sb, phys);
 		return 0;
 	}
@@ -67,12 +63,8 @@ static int emu3_get_block(struct inode *inode, sector_t block,
 		return -ENOSPC;
 	}
 	
-	mutex_lock(&info->lock);
-	printk("c=%d, b=%08lx, phys=%08lx (simple extension)\n", 
-			create, (unsigned long)block, phys);
 	map_bh(bh_result, sb, phys);
 	mark_inode_dirty(inode);
-	mutex_unlock(&info->lock);
 	
 	return 0;
 }

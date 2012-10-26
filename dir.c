@@ -92,28 +92,28 @@ static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
 	struct inode *inode = NULL;
 	struct buffer_head *b;
    	struct emu3_dentry * e3d;
-   	struct emu3_sb_info * info = EMU3_SB(dir->i_sb);
+//   	struct emu3_sb_info * info = EMU3_SB(dir->i_sb);
 
 	if (dentry->d_name.len > LENGTH_FILENAME) {
 		return ERR_PTR(-ENAMETOOLONG);
 	}
-	
-	mutex_lock(&info->lock);
+
+//TODO: Needed?	
+//	mutex_lock(&info->lock);
 	e3d = emu3_find_dentry_by_name(dir->i_sb, dentry, &b);
 
 	if (e3d) {
 		inode = emu3_get_inode(dir->i_sb, EMU3_I_ID(e3d));
 		brelse(b);
 		if (IS_ERR(inode)) {
-			mutex_unlock(&info->lock);
+//			mutex_unlock(&info->lock);
 			return ERR_CAST(inode);
 		}
 	}
 
-	mutex_unlock(&info->lock);
+//	mutex_unlock(&info->lock);
 	
 	d_add(dentry, inode);
-	//d_invalidate(dentry);
 
 	return NULL;
 }
@@ -132,6 +132,9 @@ static int emu3_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	if (!inode) {
 		return -ENOSPC;
 	}
+	
+	//Here we force every existent inode to be written down. 
+	fsync_bdev(dir->i_sb->s_bdev);
 	
 	mutex_lock(&info->lock);
 	
@@ -166,7 +169,6 @@ int emu3_add_entry(struct inode *dir, const unsigned char *name, int namelen, un
    	struct emu3_dentry * e3d;
    	struct super_block *sb = dir->i_sb;
 	struct emu3_sb_info *info = EMU3_SB(sb);
-   	unsigned int start_cluster;
 
 	if (!namelen) {
 		return -ENOENT;
@@ -176,7 +178,7 @@ int emu3_add_entry(struct inode *dir, const unsigned char *name, int namelen, un
 		return -ENAMETOOLONG;
 	}
 	
-	e3d = emu3_find_empty_dentry(sb, &b, id, &start_cluster);
+	e3d = emu3_find_empty_dentry(sb, &b, id);
 
 	if (!e3d) {
 		return -ENOSPC;
@@ -187,7 +189,7 @@ int emu3_add_entry(struct inode *dir, const unsigned char *name, int namelen, un
 	memset(&e3d->name[namelen], ' ', LENGTH_FILENAME - namelen);
 	e3d->unknown = 0;
 	e3d->id = *id;
-	e3d->start_cluster = cpu_to_le16(start_cluster);
+	e3d->start_cluster = cpu_to_le16(info->next_available_cluster);
 	e3d->clusters = cpu_to_le16(1);
 	e3d->blocks = cpu_to_le16(1);
 	e3d->bytes = cpu_to_le16(0);
@@ -198,7 +200,7 @@ int emu3_add_entry(struct inode *dir, const unsigned char *name, int namelen, un
     brelse(b);
 
 	info->used_inodes++;
-	info->next_available_cluster = start_cluster + 1;
+	info->next_available_cluster++;
 	info->last_inode = e3d->id;
 
 	return 0;
@@ -206,8 +208,7 @@ int emu3_add_entry(struct inode *dir, const unsigned char *name, int namelen, un
 
 struct emu3_dentry * emu3_find_empty_dentry(struct super_block *sb, 
 											struct buffer_head **b,
-											unsigned int * id,
-											unsigned int * start_cluster)
+											unsigned int * id)
 {
 	struct emu3_sb_info *info = EMU3_SB(sb);
 	struct emu3_dentry * e3d;
@@ -217,8 +218,6 @@ struct emu3_dentry * emu3_find_empty_dentry(struct super_block *sb,
 	for (i = 0; i < EMU3_MAX_REGULAR_FILE; i++) {
 		ids[i] = 0;
 	}
-
-	*start_cluster = 1; //The first data cluster is always the 1st one
 
 	for (i = 0; i < info->root_dir_blocks; i++) {
 		*b = sb_bread(sb, info->start_root_dir_block + i);
@@ -231,7 +230,6 @@ struct emu3_dentry * emu3_find_empty_dentry(struct super_block *sb,
 				//Here we can't use the EMU3_I_ID macro
 					ids[e3d->id] = 1;
 				}
-				*start_cluster = e3d->start_cluster + e3d->clusters;
 			}
 			else {
 				for (k = 0; k < EMU3_MAX_REGULAR_FILE; k++) {
@@ -240,7 +238,7 @@ struct emu3_dentry * emu3_find_empty_dentry(struct super_block *sb,
 						break;
 					}
 				}
-				if (k == EMU3_MAX_REGULAR_FILE || *start_cluster > info->clusters)	{
+				if (k == EMU3_MAX_REGULAR_FILE || (e3d->start_cluster + e3d->clusters) == info->clusters)	{
 					brelse(*b);
 					return NULL;
 				}
