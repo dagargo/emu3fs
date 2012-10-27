@@ -124,7 +124,8 @@ static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
 	buf->f_type = EMU3_FS_TYPE;
 	buf->f_bsize = EMU3_BSIZE;
 	buf->f_blocks = info->clusters * info->blocks_per_cluster;
-	buf->f_bfree = (info->clusters - info->next_available_cluster - 1) * info->blocks_per_cluster;
+	printk("next available cluster is %d (total %d).\n", info->next_available_cluster, info->clusters);
+	buf->f_bfree = (info->clusters - info->next_available_cluster + 1) * info->blocks_per_cluster;
 	buf->f_bavail = buf->f_bfree;
 	buf->f_files = info->used_inodes;
 	buf->f_ffree = EMU3_MAX_FILES - info->used_inodes;
@@ -161,12 +162,7 @@ static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 		
 	mutex_lock(&info->lock);
 
-	printk("Last used inode is %d. Writing to inode %d (kernel %ld)...\n", info->last_inode, ino, inode->i_ino);
-
-	if (ino != info->last_inode) {
-		mutex_unlock(&info->lock);
-	    return -ENOSPC;
-	}
+	printk("Writing to inode %d (kernel %ld)...\n", ino, inode->i_ino);
 	
     e3d = emu3_find_dentry_by_id(inode->i_sb, ino, &bh);
 	if (!e3d) {
@@ -176,11 +172,9 @@ static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 
     e3i = EMU3_I(inode);
 
-	emu3_get_file_geom(info, inode->i_size, &e3d->clusters, &e3d->blocks, &e3d->bytes);
+	emu3_get_file_geom(info, inode, &e3d->clusters, &e3d->blocks, &e3d->bytes);
     e3d->start_cluster = e3i->start_cluster;
 	
-	info->next_available_cluster = e3d->start_cluster + e3d->clusters;
-
 	mark_buffer_dirty(bh);
 	if (wbc->sync_mode == WB_SYNC_ALL) {
 		sync_dirty_buffer(bh);
@@ -231,17 +225,24 @@ unsigned int emu3_file_block_count(struct emu3_sb_info * sb,
 }
 
 void emu3_get_file_geom(struct emu3_sb_info *info, 
-                        unsigned int size, 
+                        struct inode * inode, 
                         unsigned short *clusters, 
                         unsigned short *blocks, 
                         unsigned short *bytes) {
     int bytes_per_cluster =  info->blocks_per_cluster * EMU3_BSIZE;
-    int clusters_rem;
-    
-    *clusters = (size / bytes_per_cluster) + 1;
+    unsigned int clusters_rem;
+    unsigned int size = inode->i_size;
+
+	if (clusters) {
+	    *clusters = (size / bytes_per_cluster) + 1;
+	}    
 	clusters_rem = size % bytes_per_cluster;
-	*blocks = (clusters_rem / EMU3_BSIZE) + 1;
-	*bytes = clusters_rem % EMU3_BSIZE;
+	if (blocks) {
+		*blocks = (clusters_rem / EMU3_BSIZE) + 1;
+	}
+	if (bytes) {
+		*bytes = clusters_rem % EMU3_BSIZE;
+	}
 }
 
 struct inode * emu3_get_inode(struct super_block *sb, unsigned long id)
@@ -352,7 +353,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 		else {
 			parameters = (unsigned int *) e3sb;
 			
-			info->blocks = cpu_to_le32(parameters[1]); //TODO: add 1 ???
+			info->blocks = cpu_to_le32(parameters[1]); //TODO: add 1 ??? Do we really use this?
 			info->start_info_block = cpu_to_le32(parameters[2]);
 			info->info_blocks = cpu_to_le32(parameters[3]);
 			info->start_root_dir_block = cpu_to_le32(parameters[4]);
@@ -360,7 +361,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 			info->start_data_block = cpu_to_le32(parameters[8]);
 			info->blocks_per_cluster = (0x10000 << (e3sb[0x28] - 1)) / EMU3_BSIZE;
 			info->clusters = cpu_to_le32(parameters[9]);
-			//TODO: check clusters ok. Seems so...
+			
 			//We need to calculate some things here.
 			info->last_inode = -1;
 			info->used_inodes = 0;

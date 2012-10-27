@@ -125,8 +125,10 @@ struct emu3_dentry * emu3_find_empty_dentry(struct super_block *,
 											
 const char * emu3_filename_length(const char *, int *);
 
+inline unsigned int emu3_get_start_block(struct emu3_inode * e3i, struct emu3_sb_info *info);
+
 void emu3_get_file_geom(struct emu3_sb_info *, 
-                        unsigned int, 
+                        struct inode *, 
                         unsigned short *, 
                         unsigned short *, 
                         unsigned short *);

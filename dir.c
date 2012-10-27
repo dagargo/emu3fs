@@ -134,7 +134,7 @@ static int emu3_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	}
 	
 	//Here we force every existent inode to be written down. 
-	fsync_bdev(dir->i_sb->s_bdev);
+	//fsync_bdev(dir->i_sb->s_bdev);
 	
 	mutex_lock(&info->lock);
 	
@@ -149,11 +149,11 @@ static int emu3_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	
 	inode_init_owner(inode, dir, mode);
 	inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME_SEC;
-	inode->i_blocks = 0; //TODO: check;
+	inode->i_blocks = 0;
 	inode->i_op = &emu3_inode_operations_file;
 	inode->i_fop = &emu3_file_operations_file;
 	inode->i_mapping->a_ops = &emu3_aops;
-	inode->i_ino = ino + 1;
+	inode->i_ino = ino + 1; //can NOT start at 0
     EMU3_I(inode)->start_cluster = start_cluster;
     info->last_inode = ino;
 	insert_inode_hash(inode);
@@ -181,6 +181,10 @@ int emu3_add_entry(struct inode *dir, const unsigned char *name, int namelen, un
 	e3d = emu3_find_empty_dentry(sb, &b, id);
 
 	if (!e3d) {
+		return -ENOSPC;
+	}
+	
+	if (info->next_available_cluster > info->clusters) {
 		return -ENOSPC;
 	}
 	

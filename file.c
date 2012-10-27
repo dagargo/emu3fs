@@ -30,6 +30,10 @@ const struct file_operations emu3_file_operations_file = {
 	.splice_read = generic_file_splice_read,
 };
 
+inline unsigned int emu3_get_start_block(struct emu3_inode * e3i, struct emu3_sb_info *info) {
+	return ((e3i->start_cluster - 1) * info->blocks_per_cluster) + info->start_data_block;
+}
+
 static int emu3_get_block(struct inode *inode, sector_t block,
 			struct buffer_head *bh_result, int create)
 {
@@ -38,9 +42,9 @@ static int emu3_get_block(struct inode *inode, sector_t block,
 	struct emu3_sb_info *info = EMU3_SB(sb);
 	struct emu3_inode * e3i = EMU3_I(inode);
 	unsigned int ino = TO_EMU3_ID(inode->i_ino);
+	unsigned short clusters;
 	
-	//TODO: make a function
-	phys = ((e3i->start_cluster - 1) * info->blocks_per_cluster) + info->start_data_block + block;
+	phys = emu3_get_start_block(e3i, info) + block;
 	if (!create) {
 		if (block < inode->i_blocks) {
 			map_bh(bh_result, sb, phys);
@@ -58,11 +62,22 @@ static int emu3_get_block(struct inode *inode, sector_t block,
 	if (phys >= info->blocks) {
 		return -ENOSPC;
 	}
-
+	
 	if (ino != info->last_inode) {
 		return -ENOSPC;
 	}
 	
+	emu3_get_file_geom(info, inode, &clusters, NULL, NULL);
+	
+	if (e3i->start_cluster + clusters > info->clusters + 1) {
+		//End of device reached
+		return -ENOSPC;
+	}
+
+	mutex_lock(&info->lock);
+	info->next_available_cluster = e3i->start_cluster + clusters;
+	mutex_unlock(&info->lock);
+
 	map_bh(bh_result, sb, phys);
 	mark_inode_dirty(inode);
 	
