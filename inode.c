@@ -79,7 +79,7 @@ static int id_comparator(void * v, struct emu3_dentry * e3d) {
 }
 
 struct emu3_dentry * emu3_find_dentry(struct super_block *sb,
-											struct buffer_head **b,
+											struct buffer_head **bh,
 											void * v,
 											int (*comparator)(void *, struct emu3_dentry *))
 {
@@ -92,9 +92,9 @@ struct emu3_dentry * emu3_find_dentry(struct super_block *sb,
 	}
 
 	for (i = 0; i < info->root_dir_blocks; i++) {
-		*b = sb_bread(sb, info->start_root_dir_block + i);
+		*bh = sb_bread(sb, info->start_root_dir_block + i);
 	
-		e3d = (struct emu3_dentry *)(*b)->b_data;
+		e3d = (struct emu3_dentry *)(*bh)->b_data;
 		
 		for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
 			if (IS_EMU3_FILE(e3d) && e3d->type != FTYPE_DEL) {
@@ -105,7 +105,7 @@ struct emu3_dentry * emu3_find_dentry(struct super_block *sb,
 			e3d++;
 		}
 	
-		brelse(*b);
+		brelse(*bh);
 	}
 	
 	return NULL;
@@ -124,7 +124,6 @@ static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
 	buf->f_type = EMU3_FS_TYPE;
 	buf->f_bsize = EMU3_BSIZE;
 	buf->f_blocks = info->clusters * info->blocks_per_cluster;
-	printk("next available cluster is %d (total %d).\n", info->next_available_cluster, info->clusters);
 	buf->f_bfree = (info->clusters - info->next_available_cluster + 1) * info->blocks_per_cluster;
 	buf->f_bavail = buf->f_bfree;
 	buf->f_files = info->used_inodes;
@@ -145,6 +144,42 @@ static void emu3_put_super(struct super_block *sb)
 		kfree(info);
 		sb->s_fs_info = NULL;
 	}
+}
+
+void emu3_fix_things(struct inode *inode, struct emu3_dentry *e3d) {
+	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
+	unsigned int ino = TO_EMU3_ID(inode->i_ino);
+	struct emu3_inode *e3i;
+	struct buffer_head *bh;	
+	char * data;
+	unsigned short * cluster_list;
+	int i;
+
+	//Fixing things for the first created file only. Sadly, we have to do this for inode 0 always.
+	if (ino == 0) {
+		bh = sb_bread(inode->i_sb, 1);
+		data = (char *) bh->b_data;
+		data[0x0] = 0x0a;
+		mark_buffer_dirty(bh);
+		brelse(bh);
+		
+		bh = sb_bread(inode->i_sb, info->start_info_block);
+		data = (char *) bh->b_data;
+		data[0x12] = 0x09;
+		data[0x13] = 0x00;
+		mark_buffer_dirty(bh);
+		brelse(bh);
+	}
+	
+	//Here we have to write down the cluster list
+	bh = sb_bread(inode->i_sb, 2);
+	cluster_list = (unsigned short *) bh->b_data;
+	for (i = 0; i < e3d->clusters - 1; i++) {
+		cluster_list[e3d->start_cluster + i] = cpu_to_le16(e3d->start_cluster + i + 1);
+	}
+	cluster_list[e3d->start_cluster + i] = cpu_to_le16(0x7fff);
+	mark_buffer_dirty(bh);
+	brelse(bh);
 }
 
 static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
@@ -182,8 +217,10 @@ static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 			err = -EIO;
 		}
 	}
-	
 	brelse(bh);
+
+	emu3_fix_things(inode, e3d);
+
 	mutex_unlock(&info->lock);
 
 	return err;

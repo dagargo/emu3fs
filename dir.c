@@ -247,6 +247,10 @@ struct emu3_dentry * emu3_find_empty_dentry(struct super_block *sb,
 					return NULL;
 				}
 				else {
+					//Not really needed but the hardware does it.
+					if (j == 0) {
+						memset((*b)->b_data, 0, EMU3_BSIZE);
+					}
 					return e3d;
 				}
 			}
