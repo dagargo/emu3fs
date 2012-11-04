@@ -24,14 +24,13 @@
 #include <linux/string.h>
 #include <linux/vfs.h>
 
-#define EMU3_MODULE_NAME "E-mu E3 filesystem module"
-
-#define EMU3_ERROR_MSG "E-mu E3 error: "
+#define EMU3_MODULE_NAME "E-mu E3 fs"
 
 #define EMU3_FS_SIGNATURE "EMU3"
 #define EMU3_FS_TYPE 0x454d5533
 
 #define EMU3_BSIZE 0x200
+#define EMU3_CENTRIES_PER_BLOCK  (EMU3_BSIZE / 2)
 
 //TODO: why can't this be used as a left assignment operator?
 #define EMU3_SB(sb) ((struct emu3_sb_info *)sb->s_fs_info)
@@ -72,12 +71,15 @@ struct emu3_sb_info {
 	unsigned int info_blocks;
 	unsigned int start_root_dir_block;
 	unsigned int root_dir_blocks;
+	unsigned int start_cluster_list_block;
+	unsigned int cluster_list_blocks;
 	unsigned int start_data_block;
 	unsigned int blocks_per_cluster;
 	unsigned int clusters;
 	unsigned int used_inodes;
 	unsigned int next_available_cluster;
 	unsigned int last_inode;
+	unsigned short *cluster_list;
 	struct mutex lock;
 };
 
@@ -132,3 +134,9 @@ void emu3_get_file_geom(struct emu3_sb_info *,
                         unsigned short *, 
                         unsigned short *, 
                         unsigned short *);
+
+void emu3_add_to_cluster_list(struct emu3_sb_info *, unsigned int, unsigned int);
+
+void emu3_write_cluster_list(struct super_block *);
+
+void emu3_read_cluster_list(struct super_block *);

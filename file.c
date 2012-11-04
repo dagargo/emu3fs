@@ -75,6 +75,7 @@ static int emu3_get_block(struct inode *inode, sector_t block,
 	}
 
 	mutex_lock(&info->lock);
+	emu3_add_to_cluster_list(info, e3i->start_cluster, clusters);
 	info->next_available_cluster = e3i->start_cluster + clusters;
 	mutex_unlock(&info->lock);
 
