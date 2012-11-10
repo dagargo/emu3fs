@@ -84,7 +84,7 @@ struct emu3_sb_info {
 };
 
 struct emu3_dentry {
-	char name[16];
+	char name[LENGTH_FILENAME];
 	unsigned char unknown;
 	unsigned char id; //This can be 0. No inode id in linux can be 0.
 	unsigned short start_cluster;
