@@ -121,10 +121,18 @@ static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
 	struct super_block *sb = dentry->d_sb;
 	struct emu3_sb_info *info = EMU3_SB(sb);
 	u64 id = huge_encode_dev(sb->s_bdev->bd_dev);
+	int free_clusters = 0;
+	int i;
+	for (i = 1; i <= info->clusters; i++) {
+		if (info->cluster_list[i] == 0) {
+			free_clusters++;
+		}
+	}
+
 	buf->f_type = EMU3_FS_TYPE;
 	buf->f_bsize = EMU3_BSIZE;
 	buf->f_blocks = info->clusters * info->blocks_per_cluster;
-	buf->f_bfree = (info->clusters - info->next_available_cluster + 1) * info->blocks_per_cluster;
+	buf->f_bfree = (info->clusters - free_clusters) * info->blocks_per_cluster;
 	buf->f_bavail = buf->f_bfree;
 	buf->f_files = info->used_inodes;
 	buf->f_ffree = EMU3_MAX_FILES - info->used_inodes;
@@ -137,6 +145,10 @@ static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
 static void emu3_put_super(struct super_block *sb)
 {
 	struct emu3_sb_info *info = EMU3_SB(sb);
+
+	mutex_lock(&info->lock);
+	emu3_write_cluster_list(sb);
+	mutex_unlock(&info->lock);	
 
 	mutex_destroy(&info->lock);
 
@@ -166,13 +178,108 @@ void emu3_mark_as_non_empty(struct super_block *sb) {
 	brelse(bh);
 }
 
-void emu3_add_to_cluster_list(struct emu3_sb_info *info, unsigned int start_cluster, unsigned int clusters) {
-	int i;
-
-	for (i = 0; i < clusters - 1; i++) {
-		info->cluster_list[start_cluster + i] = cpu_to_le16(start_cluster + i + 1);
+//Base 0 search
+int emu3_expand_cluster_list(struct inode * inode, sector_t block) {
+	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
+	struct emu3_inode *e3i = EMU3_I(inode);
+	int cluster = ((int)block) / info->blocks_per_cluster;
+	int next = e3i->start_cluster;
+	int i = 0;
+	while (info->cluster_list[next] != cpu_to_le16(LAST_CLUSTER_OF_FILE)) {
+		next = info->cluster_list[next];
+		i++;
 	}
-	info->cluster_list[start_cluster + i] = cpu_to_le16(0x7fff);
+	while (i < cluster) {
+		int new = emu3_next_available_cluster(info);
+		if (new < 0) {
+			return -ENOSPC;
+		}
+		info->cluster_list[next] = new;
+		next = new;
+		i++;
+	}
+	info->cluster_list[next] = cpu_to_le16(LAST_CLUSTER_OF_FILE);
+	return 0;
+}
+
+
+//Base 0 search
+int emu3_get_cluster(struct inode * inode, int n) {
+	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
+	struct emu3_inode *e3i = EMU3_I(inode);
+	int next = e3i->start_cluster;
+	int i = 0;
+	while (i < n) {
+		if (info->cluster_list[next] == cpu_to_le16(LAST_CLUSTER_OF_FILE)) {
+			return -1;
+		}
+		next = info->cluster_list[next];
+		i++;
+	}
+	return next;
+}
+
+void emu3_init_cluster_list(struct inode * inode) {
+	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
+	struct emu3_inode *e3i = EMU3_I(inode);
+	info->cluster_list[e3i->start_cluster] = cpu_to_le16(LAST_CLUSTER_OF_FILE);
+}
+
+void emu3_clear_cluster_list(struct inode * inode) {
+	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
+	struct emu3_inode *e3i = EMU3_I(inode);
+	int next = e3i->start_cluster;
+	while (info->cluster_list[next] != cpu_to_le16(LAST_CLUSTER_OF_FILE)) {
+		int prev = next;
+		next = info->cluster_list[next];
+		info->cluster_list[prev] = 0;
+	}
+	info->cluster_list[next] = 0;
+}
+
+//Prunes the cluster list to the real inode size
+void emu3_update_cluster_list(struct inode * inode) {
+	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
+	short int clusters, last_cluster;
+	int prunning;
+	emu3_get_file_geom(inode, &clusters, NULL, NULL);
+	last_cluster = emu3_get_cluster(inode, clusters - 1);
+	prunning = 0; 
+	while (info->cluster_list[last_cluster] != cpu_to_le16(LAST_CLUSTER_OF_FILE)) {
+		int next = info->cluster_list[last_cluster];
+		if (prunning) {
+			info->cluster_list[last_cluster] = 0;
+		}
+		else {
+			info->cluster_list[last_cluster] = cpu_to_le16(LAST_CLUSTER_OF_FILE);
+		}
+		last_cluster = next;
+		prunning = 1;
+	}
+	if (prunning) {
+		info->cluster_list[last_cluster] = 0;
+	}
+}
+
+int emu3_next_available_cluster(struct emu3_sb_info * info) {
+	int i;
+	for (i = 1; i <= info->clusters; i++) {
+		if (info->cluster_list[i] == 0) {
+			return i;
+		}
+	}
+	return -ENOSPC;
+}
+
+unsigned int emu3_get_phys_block(struct inode * inode, sector_t block) {
+	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
+	int cluster = ((int)block) / info->blocks_per_cluster; //cluster amount
+	int offset = ((int)block) % info->blocks_per_cluster;
+	cluster = emu3_get_cluster(inode, cluster);
+	if (cluster == -1) {
+		return -1;
+	}
+	return info->start_data_block + ((cluster - 1) * info->blocks_per_cluster) + offset;
 }
 
 static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
@@ -198,9 +305,11 @@ static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 		return PTR_ERR(e3d);
 	}
 
-    e3i = EMU3_I(inode);
+	emu3_update_cluster_list(inode);
 
-	emu3_get_file_geom(info, inode, &e3d->clusters, &e3d->blocks, &e3d->bytes);
+	emu3_get_file_geom(inode, &e3d->clusters, &e3d->blocks, &e3d->bytes);
+	
+    e3i = EMU3_I(inode);
     e3d->start_cluster = e3i->start_cluster;
 	
 	mark_buffer_dirty(bh);
@@ -215,15 +324,13 @@ static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 	if (ino == 0) {
 		emu3_mark_as_non_empty(inode->i_sb);
 	}
-	emu3_write_cluster_list(inode->i_sb);
 
 	mutex_unlock(&info->lock);
 
 	return err;
 }
 
-static void emu3_evict_inode(struct inode *inode)
-{
+static void emu3_evict_inode(struct inode *inode) {
 	truncate_inode_pages(&inode->i_data, 0);
 	invalidate_inode_buffers(inode);
 	clear_inode(inode);
@@ -257,11 +364,11 @@ unsigned int emu3_file_block_count(struct emu3_sb_info * sb,
 	return 0;
 }
 
-void emu3_get_file_geom(struct emu3_sb_info *info, 
-                        struct inode * inode, 
+void emu3_get_file_geom(struct inode * inode, 
                         unsigned short *clusters, 
                         unsigned short *blocks, 
                         unsigned short *bytes) {
+   	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
     int bytes_per_cluster =  info->blocks_per_cluster * EMU3_BSIZE;
     unsigned int clusters_rem;
     unsigned int size = inode->i_size;
@@ -313,7 +420,7 @@ struct inode * emu3_get_inode(struct super_block *sb, unsigned long id)
 		return inode;
 	}
 
-	inode->i_ino = id;
+	inode->i_ino = id;//TODO: needed?
 	inode->i_mode = ((id == ROOT_DIR_INODE_ID)?S_IFDIR | S_IXUSR | S_IXGRP | S_IXOTH:S_IFREG) | S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH;
 	inode->i_uid = current_fsuid();
 	inode->i_gid = current_fsgid();
@@ -326,12 +433,9 @@ struct inode * emu3_get_inode(struct super_block *sb, unsigned long id)
 	inode->i_atime = CURRENT_TIME;
 	inode->i_mtime = CURRENT_TIME;
 	inode->i_ctime = CURRENT_TIME;
-	e3i = EMU3_I(inode);
-	if (e3d != NULL) {
-		e3i->start_cluster = e3d->start_cluster;
-	}
-
 	if (id != ROOT_DIR_INODE_ID) {
+		e3i = EMU3_I(inode);
+		e3i->start_cluster = e3d->start_cluster;
 		inode->i_mapping->a_ops = &emu3_aops;	
 		brelse(b);
 	}
@@ -417,7 +521,6 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 			//We need to calculate some things here.
 			info->last_inode = -1;
 			info->used_inodes = 0;
-			info->next_available_cluster = 1;
 
 			for (i = 0; i < info->root_dir_blocks; i++) {
 				bh = sb_bread(sb, info->start_root_dir_block + i);
@@ -430,7 +533,6 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 							info->last_inode = e3d->id;
 						}
 						info->used_inodes++;
-						info->next_available_cluster = e3d->start_cluster + e3d->clusters;
 					}
 					e3d++;
 				}
@@ -451,7 +553,6 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 			printk("%s: cluster list init block @ %d + %d blocks.\n", EMU3_MODULE_NAME, info->start_cluster_list_block, info->cluster_list_blocks);
 			printk("%s: root init block @ %d + %d blocks.\n", EMU3_MODULE_NAME, info->start_root_dir_block, info->root_dir_blocks);
 			printk("%s: data init block @ %d + %d clusters.\n", EMU3_MODULE_NAME, info->start_data_block, info->clusters);
-			printk("%s: last_inode = %d, used_inodes = %d, next_available_cluster = %d.\n", EMU3_MODULE_NAME, info->last_inode, info->used_inodes, info->next_available_cluster);
 						
 			sb->s_op = &emu3_super_operations;
 

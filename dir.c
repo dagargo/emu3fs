@@ -51,6 +51,9 @@ int name_comparator(void * v, struct emu3_dentry * e3d) {
 	int size;
 	emu3_filename_fix(e3d->name, fixed);
 	emu3_filename_length(fixed, &size);
+	if (dentry->d_name.len != size) {
+		return -1;
+	}
 	return strncmp(fixed, dentry->d_name.name, size);
 }
 
@@ -110,27 +113,21 @@ static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
 	struct inode *inode = NULL;
 	struct buffer_head *b;
    	struct emu3_dentry * e3d;
-//   	struct emu3_sb_info * info = EMU3_SB(dir->i_sb);
 
 	if (dentry->d_name.len > LENGTH_FILENAME) {
 		return ERR_PTR(-ENAMETOOLONG);
 	}
 
-//TODO: Needed?	
-//	mutex_lock(&info->lock);
 	e3d = emu3_find_dentry_by_name(dir->i_sb, dentry, &b);
 
 	if (e3d) {
 		inode = emu3_get_inode(dir->i_sb, EMU3_I_ID(e3d));
 		brelse(b);
 		if (IS_ERR(inode)) {
-//			mutex_unlock(&info->lock);
 			return ERR_CAST(inode);
 		}
 	}
 
-//	mutex_unlock(&info->lock);
-	
 	d_add(dentry, inode);
 
 	return NULL;
@@ -139,29 +136,25 @@ static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
 static int emu3_create(struct inode *dir, struct dentry *dentry, umode_t mode,
                                                 struct nameidata *nd)
 {
-	int err;
 	struct inode *inode;
 	struct super_block *sb = dir->i_sb;
 	struct emu3_sb_info *info = EMU3_SB(sb);
 	unsigned int ino;
 	unsigned int start_cluster;
+	int err;
 
 	inode = new_inode(sb);
 	if (!inode) {
 		return -ENOSPC;
 	}
 	
-	//Here we force every existent inode to be written down. 
-	//fsync_bdev(dir->i_sb->s_bdev);
-	
 	mutex_lock(&info->lock);
 	
-	start_cluster = info->next_available_cluster;
-	
-	err = emu3_add_entry(dir, dentry->d_name.name, dentry->d_name.len, &ino);
+	err = emu3_add_entry(dir, dentry->d_name.name, dentry->d_name.len, &ino, &start_cluster);
 
 	if (err)  {
 	    mutex_unlock(&info->lock);
+	    iput(inode);
 	    return err;
 	}
 	
@@ -172,7 +165,9 @@ static int emu3_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	inode->i_fop = &emu3_file_operations_file;
 	inode->i_mapping->a_ops = &emu3_aops;
 	inode->i_ino = ino + 1; //can NOT start at 0
+	inode->i_size = 0;
     EMU3_I(inode)->start_cluster = start_cluster;
+    emu3_init_cluster_list(inode);
     info->last_inode = ino;
 	insert_inode_hash(inode);
 	mark_inode_dirty(inode);
@@ -182,7 +177,7 @@ static int emu3_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	return 0;
 }
 
-int emu3_add_entry(struct inode *dir, const unsigned char *name, int namelen, unsigned int * id) {
+int emu3_add_entry(struct inode *dir, const unsigned char *name, int namelen, unsigned int * id, int * start_cluster) {
 	struct buffer_head *b;
    	struct emu3_dentry * e3d;
    	struct super_block *sb = dir->i_sb;
@@ -202,8 +197,10 @@ int emu3_add_entry(struct inode *dir, const unsigned char *name, int namelen, un
 		return -ENOSPC;
 	}
 	
-	if (info->next_available_cluster > info->clusters) {
-		return -ENOSPC;
+	*start_cluster = emu3_next_available_cluster(info);
+
+	if (start_cluster < 0)  {
+	    return -ENOSPC;
 	}
 	
 	//TODO: fix timestamps
@@ -211,7 +208,7 @@ int emu3_add_entry(struct inode *dir, const unsigned char *name, int namelen, un
 	memset(&e3d->name[namelen], ' ', LENGTH_FILENAME - namelen);
 	e3d->unknown = 0;
 	e3d->id = *id;
-	e3d->start_cluster = cpu_to_le16(info->next_available_cluster);
+	e3d->start_cluster = cpu_to_le16(*start_cluster);
 	e3d->clusters = cpu_to_le16(1);
 	e3d->blocks = cpu_to_le16(1);
 	e3d->bytes = cpu_to_le16(0);
@@ -222,7 +219,6 @@ int emu3_add_entry(struct inode *dir, const unsigned char *name, int namelen, un
     brelse(b);
 
 	info->used_inodes++;
-	info->next_available_cluster++;
 	info->last_inode = e3d->id;
 
 	return 0;
@@ -306,6 +302,9 @@ static int emu3_unlink(struct inode *dir, struct dentry *dentry) {
     inode->i_ctime = dir->i_ctime;
     inode_dec_link_count(inode);
 	brelse(b);
+	
+	emu3_clear_cluster_list(inode);
+	
 	mutex_unlock(&info->lock);
 
 	return 0;
@@ -321,7 +320,6 @@ const struct file_operations emu3_file_operations_dir = {
 const struct inode_operations emu3_inode_operations_dir = {
 	.create	= emu3_create,
 	.lookup	= emu3_lookup,
-	.link   = NULL,
 	.unlink	= emu3_unlink,
 	.rename	= NULL
 };
