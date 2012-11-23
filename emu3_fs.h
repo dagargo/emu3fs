@@ -61,7 +61,6 @@
 #define IS_EMU3_FILE(e3d) 		\
 	(((e3d)->clusters > 0) &&	\
 	(							\
-	(e3d)->type == FTYPE_DEL || \
 	(e3d)->type == FTYPE_STD || \
 	(e3d)->type == FTYPE_UPD || \
 	(e3d)->type == FTYPE_SYS)	\
