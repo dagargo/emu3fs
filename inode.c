@@ -132,7 +132,7 @@ static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
 	buf->f_type = EMU3_FS_TYPE;
 	buf->f_bsize = EMU3_BSIZE;
 	buf->f_blocks = info->clusters * info->blocks_per_cluster;
-	buf->f_bfree = (info->clusters - free_clusters) * info->blocks_per_cluster;
+	buf->f_bfree = free_clusters * info->blocks_per_cluster;
 	buf->f_bavail = buf->f_bfree;
 	buf->f_files = info->used_inodes;
 	buf->f_ffree = EMU3_MAX_FILES - info->used_inodes;
