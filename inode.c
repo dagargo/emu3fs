@@ -625,4 +625,4 @@ module_exit(exit);
 MODULE_LICENSE("GPL");
 
 MODULE_AUTHOR("David García Goñi <dagargo at gmail dot com>");
-MODULE_DESCRIPTION("E-mu E3 family filesystem for Linux");
+MODULE_DESCRIPTION("E-mu E3 sampler family filesystem for Linux");

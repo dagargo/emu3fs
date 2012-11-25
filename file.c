@@ -28,6 +28,7 @@ const struct file_operations emu3_file_operations_file = {
 	.aio_write	 = generic_file_aio_write,
 	.mmap		 = generic_file_mmap,
 	.splice_read = generic_file_splice_read,
+	.fsync		 = generic_file_fsync
 };
 
 static int emu3_get_block(struct inode *inode, sector_t block,

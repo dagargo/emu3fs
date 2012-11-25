@@ -1,9 +1,14 @@
 obj-m += emu3_fs.o
 emu3_fs-objs := inode.o file.o dir.o
+MOD_PATH := /lib/modules/$(shell uname -r)/build
 
 all:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+	make -C $(MOD_PATH) M=$(PWD) modules
 
 clean:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+	make -C $(MOD_PATH) M=$(PWD) clean
 	rm -rf *~
+
+install:
+	make -C $(MOD_PATH) M=$(shell pwd) modules_install
+
