@@ -1,5 +1,5 @@
 obj-m += emu3_fs.o
-emu3_fs-objs := inode.o file.o dir.o
+emu3_fs-objs := super.o inode.o file.o dir.o
 MOD_PATH := /lib/modules/$(shell uname -r)/build
 
 all:
