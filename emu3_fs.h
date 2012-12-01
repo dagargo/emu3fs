@@ -78,7 +78,6 @@ struct emu3_sb_info {
 	unsigned int blocks_per_cluster;
 	unsigned int clusters;
 	unsigned int used_inodes;
-	unsigned int last_inode;
 	unsigned short *cluster_list;
 	struct mutex lock;
 };
@@ -153,3 +152,13 @@ void emu3_update_cluster_list(struct inode *);
 void emu3_clear_cluster_list(struct inode *);
 
 unsigned int emu3_get_phys_block(struct inode *, sector_t);
+
+void emu3_init_once(void *);
+
+struct inode *emu3_alloc_inode(struct super_block *);
+
+void emu3_destroy_inode(struct inode *);
+
+int emu3_write_inode(struct inode *, struct writeback_control *);
+
+void emu3_evict_inode(struct inode *);

@@ -168,7 +168,6 @@ static int emu3_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	inode->i_size = 0;
     EMU3_I(inode)->start_cluster = start_cluster;
     emu3_init_cluster_list(inode);
-    info->last_inode = ino;
 	insert_inode_hash(inode);
 	mark_inode_dirty(inode);
 	mutex_unlock(&info->lock);
@@ -219,7 +218,6 @@ int emu3_add_entry(struct inode *dir, const unsigned char *name, int namelen, un
     brelse(b);
 
 	info->used_inodes++;
-	info->last_inode = e3d->id;
 
 	return 0;
 }
@@ -315,6 +313,7 @@ static int emu3_unlink(struct inode *dir, struct dentry *dentry) {
 	
 	emu3_clear_cluster_list(inode);
 	
+	info->used_inodes--;
 	mutex_unlock(&info->lock);
 
 	return 0;
