@@ -49,6 +49,12 @@ static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
 	struct emu3_sb_info *info = EMU3_SB(sb);
 	u64 id = huge_encode_dev(sb->s_bdev->bd_dev);
 	int free_clusters = 0;
+	int i;
+	for (i = 1; i <= info->clusters; i++) {
+		if (info->cluster_list[i] == 0) {
+			free_clusters++;
+		}
+	}
 
 	buf->f_type = EMU3_FS_TYPE;
 	buf->f_bsize = EMU3_BSIZE;
