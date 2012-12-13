@@ -43,11 +43,7 @@ static void destroy_inodecache(void)
 	kmem_cache_destroy(emu3_inode_cachep);
 }
 
-static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
-{
-	struct super_block *sb = dentry->d_sb;
-	struct emu3_sb_info *info = EMU3_SB(sb);
-	u64 id = huge_encode_dev(sb->s_bdev->bd_dev);
+static int emu3_get_free_clusters(struct emu3_sb_info *info) {
 	int free_clusters = 0;
 	int i;
 	for (i = 1; i <= info->clusters; i++) {
@@ -55,14 +51,43 @@ static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
 			free_clusters++;
 		}
 	}
+	return free_clusters;
+}
+
+static int emu3_get_free_ids(struct emu3_sb_info *info) {
+	int free_ids = 0;
+	int i;
+	for (i = 0; i < EMU3_MAX_REGULAR_FILE; i++) {
+		if (info->id_list[i] == 0) {
+			free_ids++;
+		}
+	}
+	return free_ids;
+}
+
+int emu3_get_free_id(struct emu3_sb_info *info) {
+	int i;
+	for (i = 0; i < EMU3_MAX_REGULAR_FILE; i++) {
+		if (info->id_list[i] == 0) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
+{
+	struct super_block *sb = dentry->d_sb;
+	struct emu3_sb_info *info = EMU3_SB(sb);
+	u64 id = huge_encode_dev(sb->s_bdev->bd_dev);
 
 	buf->f_type = EMU3_FS_TYPE;
 	buf->f_bsize = EMU3_BSIZE;
 	buf->f_blocks = info->clusters * info->blocks_per_cluster;
-	buf->f_bfree = free_clusters * info->blocks_per_cluster;
+	buf->f_bfree = emu3_get_free_clusters(info) * info->blocks_per_cluster;
 	buf->f_bavail = buf->f_bfree;
-	buf->f_files = info->used_inodes;
-	buf->f_ffree = EMU3_MAX_FILES - info->used_inodes;
+	buf->f_files = emu3_get_free_ids(info);
+	buf->f_ffree = EMU3_MAX_FILES - buf->f_files;
 	buf->f_fsid.val[0] = (u32)id;
 	buf->f_fsid.val[1] = (u32)(id >> 32);
 	buf->f_namelen = LENGTH_FILENAME;
@@ -94,7 +119,7 @@ static void emu3_put_super(struct super_block *sb)
 
 	mutex_lock(&info->lock);
 	emu3_write_cluster_list(sb);
-	if (info->used_inodes > 0) {
+	if (emu3_get_free_ids(info) < EMU3_MAX_REGULAR_FILE) {
 		emu3_mark_as_non_empty(sb);
 	}
 	mutex_unlock(&info->lock);	
@@ -103,6 +128,7 @@ static void emu3_put_super(struct super_block *sb)
 
 	if (info) {
 		kfree(info->cluster_list);
+		kfree(info->id_list);
 		kfree(info);
 		sb->s_fs_info = NULL;
 	}
@@ -120,7 +146,7 @@ int emu3_expand_cluster_list(struct inode * inode, sector_t block) {
 		i++;
 	}
 	while (i < cluster) {
-		int new = emu3_next_available_cluster(info);
+		int new = emu3_next_free_cluster(info);
 		if (new < 0) {
 			return -ENOSPC;
 		}
@@ -191,7 +217,7 @@ void emu3_update_cluster_list(struct inode * inode) {
 	}
 }
 
-int emu3_next_available_cluster(struct emu3_sb_info * info) {
+int emu3_next_free_cluster(struct emu3_sb_info * info) {
 	int i;
 	for (i = 1; i <= info->clusters; i++) {
 		if (info->cluster_list[i] == 0) {
@@ -294,31 +320,39 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 			info->blocks_per_cluster = (0x10000 << (e3sb[0x28] - 1)) / EMU3_BSIZE;
 			info->clusters = cpu_to_le32(parameters[9]);
 			
-			//We need to calculate the used inodes
-			info->used_inodes = 0;
-
+			//Now it's time to read the cluster list...
+			info->cluster_list = kzalloc(EMU3_BSIZE * info->cluster_list_blocks, GFP_KERNEL);
+			if (!info->cluster_list) {
+				return -ENOMEM;
+			}
+			emu3_read_cluster_list(sb);
+			//... and the inode id list.
+			info->id_list = kzalloc(sizeof(int) * EMU3_MAX_REGULAR_FILE, GFP_KERNEL);
+			if (!info->id_list) {
+				return -ENOMEM;
+			}
+			//Done.
+			
+			//We need to map the used inodes
 			for (i = 0; i < info->root_dir_blocks; i++) {
 				bh = sb_bread(sb, info->start_root_dir_block + i);
 	
 				e3d = (struct emu3_dentry *)bh->b_data;
 		
 				for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
+					//We only map the regular files
 					if (IS_EMU3_FILE(e3d)) {
-						info->used_inodes++;
+						if (e3d->id < EMU3_MAX_REGULAR_FILE) {
+							info->id_list[e3d->id] = 1;
+						}
+					} else {
+						info->id_list[e3d->id] = 0;
 					}
 					e3d++;
 				}
 				brelse(bh);
 			}
 			//Calculations done.
-			
-			//Now it's time to read the cluster list
-			info->cluster_list = kzalloc(EMU3_BSIZE * info->cluster_list_blocks, GFP_KERNEL);
-			if (!info->cluster_list) {
-				return -ENOMEM;
-			}
-			emu3_read_cluster_list(sb);
-			//Done.
 
 			printk("%s: %d blocks, %d clusters, b/c %d.\n", EMU3_MODULE_NAME, info->blocks, info->clusters, info->blocks_per_cluster);
 			printk("%s: info init block @ %d + %d blocks.\n", EMU3_MODULE_NAME, info->start_info_block, info->info_blocks);

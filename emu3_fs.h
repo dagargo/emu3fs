@@ -45,7 +45,8 @@
 
 #define LAST_CLUSTER_OF_FILE 0x7fff
 
-#define EMU3_MAX_FILES (EMU3_MAX_REGULAR_FILE + 2) //100 regular banks + 2 special rom files
+//100 regular banks + 2 special rom files with fixed ids at 0x6b and 0x6d
+#define EMU3_MAX_FILES (EMU3_MAX_REGULAR_FILE + 2) 
 
 #define MAX_ENTRIES_PER_BLOCK 16
 
@@ -77,7 +78,7 @@ struct emu3_sb_info {
 	unsigned int start_data_block;
 	unsigned int blocks_per_cluster;
 	unsigned int clusters;
-	unsigned int used_inodes;
+	unsigned int *id_list;
 	unsigned short *cluster_list;
 	struct mutex lock;
 };
@@ -121,8 +122,7 @@ struct emu3_dentry * emu3_find_dentry(struct super_block *,
 int emu3_add_entry(struct inode *, const unsigned char *, int, unsigned int *, int *);
 			
 struct emu3_dentry * emu3_find_empty_dentry(struct super_block *, 
-											struct buffer_head **,
-											unsigned int *);
+											struct buffer_head **);
 											
 const char * emu3_filename_length(const char *, int *);
 
@@ -139,7 +139,7 @@ void emu3_read_cluster_list(struct super_block *);
 
 int emu3_expand_cluster_list(struct inode *, sector_t);
 
-int emu3_next_available_cluster(struct emu3_sb_info *);
+int emu3_next_free_cluster(struct emu3_sb_info *);
 
 void emu3_init_cluster_list(struct inode *);
 
@@ -162,3 +162,5 @@ void emu3_destroy_inode(struct inode *);
 int emu3_write_inode(struct inode *, struct writeback_control *);
 
 void emu3_evict_inode(struct inode *);
+
+int emu3_get_free_id(struct emu3_sb_info *);
