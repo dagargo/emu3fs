@@ -11,4 +11,5 @@ clean:
 
 install:
 	make -C $(MOD_PATH) M=$(shell pwd) modules_install
+	depmod -a
 
