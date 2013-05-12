@@ -318,7 +318,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 			info->cluster_list_blocks = cpu_to_le32(parameters[7]);
 			info->start_data_block = cpu_to_le32(parameters[8]);
 			info->blocks_per_cluster = (0x10000 << (e3sb[0x28] - 1)) / EMU3_BSIZE;
-			info->clusters = cpu_to_le32(parameters[9]);
+			info->clusters = parameters[9] / (e3sb[0x28] == 5 ? 2 : 1);
 			
 			//Now it's time to read the cluster list...
 			info->cluster_list = kzalloc(EMU3_BSIZE * info->cluster_list_blocks, GFP_KERNEL);

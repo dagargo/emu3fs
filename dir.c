@@ -108,7 +108,7 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
 }
 
 static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
-						struct nameidata *nd)
+						unsigned int flags)
 {
 	struct inode *inode = NULL;
 	struct buffer_head *b;
@@ -134,7 +134,7 @@ static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
 }
 
 static int emu3_create(struct inode *dir, struct dentry *dentry, umode_t mode,
-                                                struct nameidata *nd)
+                                                bool excl)
 {
 	struct inode *inode;
 	struct super_block *sb = dir->i_sb;
