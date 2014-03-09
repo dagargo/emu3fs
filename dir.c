@@ -62,41 +62,48 @@ static inline struct emu3_dentry * emu3_find_dentry_by_name(struct super_block *
 	return emu3_find_dentry(sb, b, (void *) dentry, name_comparator);
 }
 
-static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
+static int emu3_iterate(struct file *f, struct dir_context *ctx)
 {
-    int i, j;
-    struct dentry *de = f->f_dentry;
-   	struct emu3_sb_info *info = EMU3_SB(de->d_inode->i_sb);
+    int i, j, k;
+    struct inode *dir = file_inode(f);
+   	struct emu3_sb_info *info = EMU3_SB(dir->i_sb);
    	struct buffer_head *b;
    	struct emu3_dentry * e3d;
-   	struct emu3_inode * e3i;
 
-    if (de->d_inode->i_ino != ROOT_DIR_INODE_ID)
+    if (dir->i_ino != ROOT_DIR_INODE_ID)
     	return -EBADF;
-
-    if (f->f_pos > 0)
-    	return 0;
     
-    if (filldir(dirent, ".", 1, f->f_pos++, de->d_inode->i_ino, DT_DIR) < 0)
-    	return 0;
-    if (filldir(dirent, "..", 2, f->f_pos++, de->d_parent->d_inode->i_ino, DT_DIR) < 0)
-    	return 0;
-
-	e3i = EMU3_I(de->d_inode);
-	for (i = 0; i < de->d_inode->i_blocks; i++) {
-		b = sb_bread(de->d_inode->i_sb, info->start_root_dir_block + i);
+    if (ctx->pos == 0) {  
+		ctx->pos++;
+		if (!dir_emit(ctx, ".", 1, dir->i_ino, DT_DIR)) {
+			return 0;
+		}
+    } else if (ctx->pos == 1) {
+		ctx->pos++;
+		if (!dir_emit(ctx, "..", 2, f->f_dentry->d_parent->d_inode->i_ino, DT_DIR)) {
+			return 0;
+		}
+	}
+	
+	k = 2;
+	for (i = 0; i < dir->i_blocks; i++) {
+		b = sb_bread(dir->i_sb, info->start_root_dir_block + i);
 		e3d = (struct emu3_dentry *)b->b_data;
-
-		for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
+			for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
 			if (IS_EMU3_FILE(e3d)) {
 				if (e3d->type != FTYPE_DEL) { //Mark as deleted files are not shown
-					char fixed[LENGTH_FILENAME];
-					int size;
-					emu3_filename_fix(e3d->name, fixed);
-					emu3_filename_length(fixed, &size);
-					if (filldir(dirent, fixed, size, f->f_pos++, EMU3_I_ID(e3d), DT_REG) < 0) {
-						return 0;
+					if (ctx->pos == k) {
+						char fixed[LENGTH_FILENAME];
+						int size;
+						emu3_filename_fix(e3d->name, fixed);
+						emu3_filename_length(fixed, &size);
+						ctx->pos++;
+						if (!dir_emit(ctx, fixed, size, EMU3_I_ID(e3d), DT_REG)) {
+							brelse(b);
+							return 0;				
+						}
 					}
+					k++;
 				}
 			}
 			e3d++;
@@ -104,7 +111,7 @@ static int emu3_readdir(struct file *f, void *dirent, filldir_t filldir)
 		brelse(b);
 	}
 	
-   return 0;
+	return 0;
 }
 
 static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
@@ -325,7 +332,7 @@ static int emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
 
 const struct file_operations emu3_file_operations_dir = {
 	.read		= generic_read_dir,
-	.readdir	= emu3_readdir,
+	.iterate	= emu3_iterate,
 	.fsync		= generic_file_fsync,
 	.llseek		= generic_file_llseek,
 };
