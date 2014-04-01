@@ -64,7 +64,8 @@ static inline struct emu3_dentry * emu3_find_dentry_by_name(struct super_block *
 
 static int emu3_iterate(struct file *f, struct dir_context *ctx)
 {
-    int i, j, k;
+    int i, j;
+    loff_t k;
     struct inode *dir = file_inode(f);
    	struct emu3_sb_info *info = EMU3_SB(dir->i_sb);
    	struct buffer_head *b;
@@ -78,7 +79,9 @@ static int emu3_iterate(struct file *f, struct dir_context *ctx)
 		if (!dir_emit(ctx, ".", 1, dir->i_ino, DT_DIR)) {
 			return 0;
 		}
-    } else if (ctx->pos == 1) {
+    }
+    
+    if (ctx->pos == 1) {
 		ctx->pos++;
 		if (!dir_emit(ctx, "..", 2, f->f_dentry->d_parent->d_inode->i_ino, DT_DIR)) {
 			return 0;
@@ -89,22 +92,20 @@ static int emu3_iterate(struct file *f, struct dir_context *ctx)
 	for (i = 0; i < dir->i_blocks; i++) {
 		b = sb_bread(dir->i_sb, info->start_root_dir_block + i);
 		e3d = (struct emu3_dentry *)b->b_data;
-			for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
-			if (IS_EMU3_FILE(e3d)) {
-				if (e3d->type != FTYPE_DEL) { //Mark as deleted files are not shown
-					if (ctx->pos == k) {
-						char fixed[LENGTH_FILENAME];
-						int size;
-						emu3_filename_fix(e3d->name, fixed);
-						emu3_filename_length(fixed, &size);
-						ctx->pos++;
-						if (!dir_emit(ctx, fixed, size, EMU3_I_ID(e3d), DT_REG)) {
-							brelse(b);
-							return 0;				
-						}
+		for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
+			if (IS_EMU3_FILE(e3d) && e3d->type != FTYPE_DEL) { //Mark as deleted files are not shown
+				if (ctx->pos == k) {
+					char fixed[LENGTH_FILENAME];
+					int size;
+					emu3_filename_fix(e3d->name, fixed);
+					emu3_filename_length(fixed, &size);
+					ctx->pos++;
+					if (!dir_emit(ctx, fixed, size, EMU3_I_ID(e3d), DT_REG)) {
+						brelse(b);
+						return 0;				
 					}
-					k++;
 				}
+				k++;
 			}
 			e3d++;
 		}

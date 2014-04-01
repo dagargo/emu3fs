@@ -342,11 +342,11 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 				for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
 					//We only map the regular files
 					if (IS_EMU3_FILE(e3d)) {
-						if (e3d->id < EMU3_MAX_REGULAR_FILE) {
+						if (e3d->type != FTYPE_DEL && e3d->id < EMU3_MAX_REGULAR_FILE) {
 							info->id_list[e3d->id] = 1;
+						} else {
+							info->id_list[e3d->id] = 0;
 						}
-					} else {
-						info->id_list[e3d->id] = 0;
 					}
 					e3d++;
 				}
