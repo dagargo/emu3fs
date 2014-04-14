@@ -113,7 +113,7 @@ int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 		
 	mutex_lock(&info->lock);
 
-	printk("%s: writing to inode %d (kernel %ld)...\n", EMU3_MODULE_NAME, ino, inode->i_ino);
+	//printk("%s: writing to inode %d (kernel %ld)...\n", EMU3_MODULE_NAME, ino, inode->i_ino);
 	
     e3d = emu3_find_dentry_by_id(inode->i_sb, ino, &bh);
 	if (!e3d) {

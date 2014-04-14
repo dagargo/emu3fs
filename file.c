@@ -34,7 +34,7 @@ const struct file_operations emu3_file_operations_file = {
 static int emu3_get_block(struct inode *inode, sector_t block,
 			struct buffer_head *bh_result, int create)
 {
-	unsigned long phys;
+	sector_t phys;
 	struct super_block *sb = inode->i_sb;
 	struct emu3_sb_info *info = EMU3_SB(sb);
 	int err;

@@ -227,7 +227,7 @@ int emu3_next_free_cluster(struct emu3_sb_info * info) {
 	return -ENOSPC;
 }
 
-unsigned int emu3_get_phys_block(struct inode * inode, sector_t block) {
+sector_t emu3_get_phys_block(struct inode * inode, sector_t block) {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
 	int cluster = ((int)block) / info->blocks_per_cluster; //cluster amount
 	int offset = ((int)block) % info->blocks_per_cluster;

@@ -151,7 +151,7 @@ void emu3_update_cluster_list(struct inode *);
 
 void emu3_clear_cluster_list(struct inode *);
 
-unsigned int emu3_get_phys_block(struct inode *, sector_t);
+sector_t emu3_get_phys_block(struct inode *, sector_t);
 
 void emu3_init_once(void *);
 
