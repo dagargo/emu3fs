@@ -10,6 +10,6 @@ It's distributed under the terms of the GPL v3.
 Installation
 ------------
 
-Simply run: make && sudo make install
+Simply run "make && sudo make install".
 
 Note that you will need the linux kernel headers to compile the module. 
