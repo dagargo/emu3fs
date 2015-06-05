@@ -83,7 +83,7 @@ static int emu3_iterate(struct file *f, struct dir_context *ctx)
     
     if (ctx->pos == 1) {
 		ctx->pos++;
-		if (!dir_emit(ctx, "..", 2, f->f_dentry->d_parent->d_inode->i_ino, DT_DIR)) {
+		if (!dir_emit(ctx, "..", 2, f->f_path.dentry->d_parent->d_inode->i_ino, DT_DIR)) {
 			return 0;
 		}
 	}
