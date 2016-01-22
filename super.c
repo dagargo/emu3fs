@@ -1,8 +1,8 @@
 /*
  *	super.c
- *	Copyright (C) 2011 David García Goñi <dagargo at gmail dot com>
+ *	Copyright (C) 2016 David García Goñi <dagargo at gmail dot com>
  *
- *   This file is part of EMU3 Filesystem Tools.
+ *   This file is part of emu3fs.
  *
  *   EMU3 Filesystem Tools is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
  *   GNU General Public License for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with EMU3 Filesystem Tool.  If not, see <http://www.gnu.org/licenses/>.
+ *   along with emu3fs.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <linux/module.h>
