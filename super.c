@@ -100,21 +100,32 @@ static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
 void emu3_mark_as_non_empty(struct super_block *sb)
 {
 	struct emu3_sb_info *info = EMU3_SB(sb);
-	struct buffer_head *bh;
-	char *data;
+	struct buffer_head *bh1, *bhinfo;
+	short int *data;
+	short int key;
+	int i;
 
-	bh = sb_bread(sb, 1);
-	data = (char *)bh->b_data;
-	data[0x0] = 0x0a;
-	mark_buffer_dirty(bh);
-	brelse(bh);
+	bhinfo = sb_bread(sb, info->start_info_block);
+	data = (short int *)bhinfo->b_data;
 
-	bh = sb_bread(sb, info->start_info_block);
-	data = (char *)bh->b_data;
-	data[0x12] = 0x09;
-	data[0x13] = 0x00;
-	mark_buffer_dirty(bh);
-	brelse(bh);
+	//The 7 short from data[9] on look like a list of used blocks of the directory
+	if (data[9] == 0xffff) {
+		bh1 = sb_bread(sb, 1);
+		key = (short int)((short int *)bh1->b_data)[0]++;
+		mark_buffer_dirty(bh1);
+		brelse(bh1);
+	} else {
+		key = data[9];
+	}
+
+	//We mark them as used always.
+	for (i = 0; i < 7; i++) {
+		data[9 + i] = key + i;
+	}
+
+	mark_buffer_dirty(bhinfo);
+
+	brelse(bhinfo);
 }
 
 static void emu3_put_super(struct super_block *sb)
@@ -342,7 +353,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 			info->blocks_per_cluster =
 			    (0x10000 << (e3sb[0x28] - 1)) / EMU3_BSIZE;
 			info->clusters =
-			    parameters[9] / (e3sb[0x28] == 5 ? 2 : 1);
+			    parameters[9] / (e3sb[0x28] >= 5 ? 2 : 1);
 
 			//Now it's time to read the cluster list...
 			info->cluster_list =

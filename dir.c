@@ -61,10 +61,8 @@ int name_comparator(void *v, struct emu3_dentry *e3d)
 }
 
 static inline struct emu3_dentry *emu3_find_dentry_by_name(struct super_block
-							   *sb,
-							   struct dentry
-							   *dentry,
-							   struct buffer_head
+							   *sb, struct dentry
+							   *dentry, struct buffer_head
 							   **b)
 {
 	return emu3_find_dentry(sb, b, (void *)dentry, name_comparator);

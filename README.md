@@ -1,7 +1,7 @@
 # emu3fs
 
 emu3fs is a Linux kernel module that allows to read from and write to disks formatted in an E-MU emu3 sampler family filesystem. The samplers using this filesystem are the emulator 3, emulator 3x and the ESI family.
-Currently, it has been tested to work with CDs and Zip drives.
+Currently, it has been tested to work with CDs, Zip drives and HDs up to 2GB.
 It's distributed under the terms of the GPL v3.
 
 ## Installation

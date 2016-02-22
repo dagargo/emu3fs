@@ -46,7 +46,7 @@
 #define LAST_CLUSTER_OF_FILE 0x7fff
 
 //100 regular banks + 2 special rom files with fixed ids at 0x6b and 0x6d
-#define EMU3_MAX_FILES (EMU3_MAX_REGULAR_FILE + 2)
+#define EMU3_MAX_FILES 102
 
 #define MAX_ENTRIES_PER_BLOCK 16
 
