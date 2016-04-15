@@ -1,0 +1,7 @@
+/.tmp_versions/
+.*.cmd
+*.o
+*.ko
+modules.order
+Module.symvers
+emu3_fs.mod.c
