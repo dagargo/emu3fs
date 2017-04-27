@@ -301,13 +301,17 @@ static int emu3_unlink(struct inode *dir, struct dentry *dentry)
 
 static int
 emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
-	    struct inode *new_dir, struct dentry *new_dentry)
+	    struct inode *new_dir, struct dentry *new_dentry,
+	    unsigned int flags)
 {
 	struct super_block *sb = old_dentry->d_inode->i_sb;
 	struct emu3_sb_info *info = EMU3_SB(sb);
 	struct buffer_head *bh;
 	struct emu3_dentry *e3d;
 	int namelen = new_dentry->d_name.len;
+
+	if (flags & ~RENAME_NOREPLACE)
+		return -EINVAL;
 
 	if (old_dir != new_dir)
 		return -EINVAL;
