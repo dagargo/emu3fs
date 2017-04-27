@@ -1,6 +1,6 @@
 /*
  *	super.c
- *	Copyright (C) 2016 David García Goñi <dagargo at gmail dot com>
+ *	Copyright (C) 2017 David García Goñi <dagargo at gmail dot com>
  *
  *   This file is part of emu3fs.
  *
@@ -16,7 +16,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with emu3fs.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -47,11 +47,10 @@ static int emu3_get_free_clusters(struct emu3_sb_info *info)
 {
 	int free_clusters = 0;
 	int i;
-	for (i = 1; i <= info->clusters; i++) {
-		if (info->cluster_list[i] == 0) {
+
+	for (i = 1; i <= info->clusters; i++)
+		if (info->cluster_list[i] == 0)
 			free_clusters++;
-		}
-	}
 	return free_clusters;
 }
 
@@ -59,22 +58,20 @@ static int emu3_get_free_ids(struct emu3_sb_info *info)
 {
 	int free_ids = 0;
 	int i;
-	for (i = 0; i < EMU3_MAX_REGULAR_FILE; i++) {
-		if (info->id_list[i] == 0) {
+
+	for (i = 0; i < EMU3_MAX_REGULAR_FILE; i++)
+		if (info->id_list[i] == 0)
 			free_ids++;
-		}
-	}
 	return free_ids;
 }
 
 int emu3_get_free_id(struct emu3_sb_info *info)
 {
 	int i;
-	for (i = 0; i < EMU3_MAX_REGULAR_FILE; i++) {
-		if (info->id_list[i] == 0) {
+
+	for (i = 0; i < EMU3_MAX_REGULAR_FILE; i++)
+		if (info->id_list[i] == 0)
 			return i;
-		}
-	}
 	return -1;
 }
 
@@ -114,14 +111,12 @@ void emu3_mark_as_non_empty(struct super_block *sb)
 		key = (short int)((short int *)bh1->b_data)[0]++;
 		mark_buffer_dirty(bh1);
 		brelse(bh1);
-	} else {
+	} else
 		key = data[9];
-	}
 
 	//We mark them as used always.
-	for (i = 0; i < 7; i++) {
+	for (i = 0; i < 7; i++)
 		data[9 + i] = key + i;
-	}
 
 	mark_buffer_dirty(bhinfo);
 
@@ -134,9 +129,8 @@ static void emu3_put_super(struct super_block *sb)
 
 	mutex_lock(&info->lock);
 	emu3_write_cluster_list(sb);
-	if (emu3_get_free_ids(info) < EMU3_MAX_REGULAR_FILE) {
+	if (emu3_get_free_ids(info) < EMU3_MAX_REGULAR_FILE)
 		emu3_mark_as_non_empty(sb);
-	}
 	mutex_unlock(&info->lock);
 
 	mutex_destroy(&info->lock);
@@ -157,15 +151,15 @@ int emu3_expand_cluster_list(struct inode *inode, sector_t block)
 	int cluster = ((int)block) / info->blocks_per_cluster;
 	int next = e3i->start_cluster;
 	int i = 0;
+
 	while (info->cluster_list[next] != cpu_to_le16(LAST_CLUSTER_OF_FILE)) {
 		next = info->cluster_list[next];
 		i++;
 	}
 	while (i < cluster) {
 		int new = emu3_next_free_cluster(info);
-		if (new < 0) {
+		if (new < 0)
 			return -ENOSPC;
-		}
 		info->cluster_list[next] = new;
 		next = new;
 		i++;
@@ -181,11 +175,11 @@ int emu3_get_cluster(struct inode *inode, int n)
 	struct emu3_inode *e3i = EMU3_I(inode);
 	int next = e3i->start_cluster;
 	int i = 0;
+
 	while (i < n) {
 		if (info->cluster_list[next] ==
-		    cpu_to_le16(LAST_CLUSTER_OF_FILE)) {
+		    cpu_to_le16(LAST_CLUSTER_OF_FILE))
 			return -1;
-		}
 		next = info->cluster_list[next];
 		i++;
 	}
@@ -196,6 +190,7 @@ void emu3_init_cluster_list(struct inode *inode)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
 	struct emu3_inode *e3i = EMU3_I(inode);
+
 	info->cluster_list[e3i->start_cluster] =
 	    cpu_to_le16(LAST_CLUSTER_OF_FILE);
 }
@@ -205,6 +200,7 @@ void emu3_clear_cluster_list(struct inode *inode)
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
 	struct emu3_inode *e3i = EMU3_I(inode);
 	int next = e3i->start_cluster;
+
 	while (info->cluster_list[next] != cpu_to_le16(LAST_CLUSTER_OF_FILE)) {
 		int prev = next;
 		next = info->cluster_list[next];
@@ -218,35 +214,33 @@ void emu3_update_cluster_list(struct inode *inode)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
 	short int clusters, last_cluster;
-	int prunning;
+	int pruning;
+
 	emu3_get_file_geom(inode, &clusters, NULL, NULL);
 	last_cluster = emu3_get_cluster(inode, clusters - 1);
-	prunning = 0;
+	pruning = 0;
 	while (info->cluster_list[last_cluster] !=
 	       cpu_to_le16(LAST_CLUSTER_OF_FILE)) {
 		int next = info->cluster_list[last_cluster];
-		if (prunning) {
+		if (pruning)
 			info->cluster_list[last_cluster] = 0;
-		} else {
+		else
 			info->cluster_list[last_cluster] =
 			    cpu_to_le16(LAST_CLUSTER_OF_FILE);
-		}
 		last_cluster = next;
-		prunning = 1;
+		pruning = 1;
 	}
-	if (prunning) {
+	if (pruning)
 		info->cluster_list[last_cluster] = 0;
-	}
 }
 
 int emu3_next_free_cluster(struct emu3_sb_info *info)
 {
 	int i;
-	for (i = 1; i <= info->clusters; i++) {
-		if (info->cluster_list[i] == 0) {
+
+	for (i = 1; i <= info->clusters; i++)
+		if (info->cluster_list[i] == 0)
 			return i;
-		}
-	}
 	return -ENOSPC;
 }
 
@@ -255,10 +249,10 @@ sector_t emu3_get_phys_block(struct inode * inode, sector_t block)
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
 	int cluster = ((int)block) / info->blocks_per_cluster;	//cluster amount
 	int offset = ((int)block) % info->blocks_per_cluster;
+
 	cluster = emu3_get_cluster(inode, cluster);
-	if (cluster == -1) {
+	if (cluster == -1)
 		return -1;
-	}
 	return info->start_data_block +
 	    ((cluster - 1) * info->blocks_per_cluster) + offset;
 }
@@ -322,9 +316,8 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 	}
 
 	info = kzalloc(sizeof(struct emu3_sb_info), GFP_KERNEL);
-	if (!info) {
+	if (!info)
 		return -ENOMEM;
-	}
 
 	sb->s_fs_info = info;
 
@@ -359,17 +352,15 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 			info->cluster_list =
 			    kzalloc(EMU3_BSIZE * info->cluster_list_blocks,
 				    GFP_KERNEL);
-			if (!info->cluster_list) {
+			if (!info->cluster_list)
 				return -ENOMEM;
-			}
 			emu3_read_cluster_list(sb);
 			//... and the inode id list.
 			info->id_list =
 			    kzalloc(sizeof(int) * EMU3_MAX_REGULAR_FILE,
 				    GFP_KERNEL);
-			if (!info->id_list) {
+			if (!info->id_list)
 				return -ENOMEM;
-			}
 			//Done.
 
 			//We need to map the used inodes
@@ -384,13 +375,12 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 					if (IS_EMU3_FILE(e3d)) {
 						if (e3d->type != FTYPE_DEL
 						    && e3d->id <
-						    EMU3_MAX_REGULAR_FILE) {
+						    EMU3_MAX_REGULAR_FILE)
 							info->id_list[e3d->id] =
 							    1;
-						} else {
+						else
 							info->id_list[e3d->id] =
 							    0;
-						}
 					}
 					e3d++;
 				}
@@ -419,9 +409,9 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 
 			inode = emu3_get_inode(sb, ROOT_DIR_INODE_ID);
 
-			if (!inode) {
+			if (!inode)
 				err = -EIO;
-			} else {
+			else {
 				sb->s_root = d_make_root(inode);
 				if (!sb->s_root) {
 					iput(inode);
@@ -431,9 +421,9 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 		}
 	}
 
-	if (!err) {
+	if (!err)
 		mutex_init(&info->lock);
-	} else {
+	else {
 		kfree(info);
 		sb->s_fs_info = NULL;
 	}
@@ -459,15 +449,14 @@ static struct file_system_type emu3_fs_type = {
 static int __init init(void)
 {
 	int err;
+
 	printk(KERN_INFO "Init %s.\n", EMU3_MODULE_NAME);
 	err = init_inodecache();
-	if (err) {
+	if (err)
 		return err;
-	}
 	err = register_filesystem(&emu3_fs_type);
-	if (err) {
+	if (err)
 		destroy_inodecache();
-	}
 	return err;
 }
 

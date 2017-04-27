@@ -1,6 +1,6 @@
 /*
  *	file.c
- *	Copyright (C) 2016 David García Goñi <dagargo at gmail dot com>
+ *	Copyright (C) 2017 David García Goñi <dagargo at gmail dot com>
  *
  *   This file is part of emu3fs.
  *
@@ -16,7 +16,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with emu3fs.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "emu3_fs.h"
 
@@ -43,17 +43,16 @@ emu3_get_block(struct inode *inode, sector_t block,
 		return 0;
 	}
 
-	if (!create) {
+	if (!create)
 		return 0;
-	}
 
 	mutex_lock(&info->lock);
 	err = emu3_expand_cluster_list(inode, block);
 	mutex_unlock(&info->lock);
 
-	if (err) {
+	if (err)
 		return -ENOSPC;
-	} else {
+	else {
 		phys = emu3_get_phys_block(inode, block);
 		map_bh(bh_result, sb, phys);
 		mark_inode_dirty(inode);

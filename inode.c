@@ -1,6 +1,6 @@
 /*
  *	inode.c
- *	Copyright (C) 2016 David García Goñi <dagargo at gmail dot com>
+ *	Copyright (C) 2017 David García Goñi <dagargo at gmail dot com>
  *
  *   This file is part of emu3fs.
  *
@@ -16,7 +16,7 @@
  *
  *   You should have received a copy of the GNU General Public License
  *   along with emu3fs.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -29,6 +29,7 @@ extern struct kmem_cache *emu3_inode_cachep;
 struct inode *emu3_alloc_inode(struct super_block *sb)
 {
 	struct emu3_inode *e3i;
+
 	e3i = kmem_cache_alloc(emu3_inode_cachep, GFP_KERNEL);
 	if (!e3i)
 		return NULL;
@@ -38,6 +39,7 @@ struct inode *emu3_alloc_inode(struct super_block *sb)
 static void emu3_i_callback(struct rcu_head *head)
 {
 	struct inode *inode = container_of(head, struct inode, i_rcu);
+
 	kmem_cache_free(emu3_inode_cachep, EMU3_I(inode));
 }
 
@@ -49,15 +51,16 @@ void emu3_destroy_inode(struct inode *inode)
 void emu3_init_once(void *foo)
 {
 	struct emu3_inode *e3i = foo;
+
 	inode_init_once(&e3i->vfs_inode);
 }
 
 static int id_comparator(void *v, struct emu3_dentry *e3d)
 {
 	int id = *((int *)v);
-	if (e3d->id == id) {
+
+	if (e3d->id == id)
 		return 0;
-	}
 	return -1;
 }
 
@@ -71,9 +74,8 @@ struct emu3_dentry *emu3_find_dentry(struct super_block *sb,
 	struct emu3_dentry *e3d;
 	int i, j;
 
-	if (!info) {
+	if (!info)
 		return NULL;
-	}
 
 	for (i = 0; i < info->root_dir_blocks; i++) {
 		*bh = sb_bread(sb, info->start_root_dir_block + i);
@@ -81,11 +83,9 @@ struct emu3_dentry *emu3_find_dentry(struct super_block *sb,
 		e3d = (struct emu3_dentry *)(*bh)->b_data;
 
 		for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
-			if (IS_EMU3_FILE(e3d) && e3d->type != FTYPE_DEL) {
-				if (comparator(v, e3d) == 0) {
+			if (IS_EMU3_FILE(e3d) && e3d->type != FTYPE_DEL)
+				if (comparator(v, e3d) == 0)
 					return e3d;
-				}
-			}
 			e3d++;
 		}
 
@@ -111,9 +111,8 @@ int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 	struct buffer_head *bh;
 	int err = 0;
 
-	if (ino == ROOT_DIR_INODE_ID) {
+	if (ino == ROOT_DIR_INODE_ID)
 		return 0;
-	}
 
 	mutex_lock(&info->lock);
 
@@ -135,9 +134,8 @@ int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 	mark_buffer_dirty(bh);
 	if (wbc->sync_mode == WB_SYNC_ALL) {
 		sync_dirty_buffer(bh);
-		if (buffer_req(bh) && !buffer_uptodate(bh)) {
+		if (buffer_req(bh) && !buffer_uptodate(bh))
 			err = -EIO;
-		}
 	}
 	brelse(bh);
 
@@ -161,6 +159,7 @@ emu3_file_block_count(struct emu3_sb_info *sb,
 	unsigned int start_cluster = cpu_to_le16(e3d->start_cluster) - 1;
 	unsigned int clusters = cpu_to_le16(e3d->clusters) - 1;
 	unsigned int blocks = cpu_to_le16(e3d->blocks);
+
 	if (blocks > sb->blocks_per_cluster) {
 		//TODO: check message && ERROR
 		printk(KERN_ERR "%s. EOF wrong in file id %d.\n",
@@ -184,16 +183,13 @@ emu3_get_file_geom(struct inode *inode,
 	unsigned int clusters_rem;
 	unsigned int size = inode->i_size;
 
-	if (clusters) {
+	if (clusters)
 		*clusters = (size / bytes_per_cluster) + 1;
-	}
 	clusters_rem = size % bytes_per_cluster;
-	if (blocks) {
+	if (blocks)
 		*blocks = (clusters_rem / EMU3_BSIZE) + 1;
-	}
-	if (bytes) {
+	if (bytes)
 		*bytes = clusters_rem % EMU3_BSIZE;
-	}
 }
 
 struct inode *emu3_get_inode(struct super_block *sb, unsigned long id)
@@ -214,9 +210,8 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long id)
 	} else {
 		e3d = emu3_find_dentry_by_id(sb, TO_EMU3_ID(id), &b);
 
-		if (!e3d) {
+		if (!e3d)
 			return ERR_PTR(-EIO);
-		}
 
 		emu3_file_block_count(info, e3d, &file_block_start,
 				      &file_block_size, &file_size);
@@ -224,12 +219,10 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long id)
 
 	inode = iget_locked(sb, id);
 
-	if (IS_ERR(inode)) {
+	if (IS_ERR(inode))
 		return ERR_PTR(-ENOMEM);
-	}
-	if (!(inode->i_state & I_NEW)) {
+	if (!(inode->i_state & I_NEW))
 		return inode;
-	}
 
 	inode->i_ino = id;	//TODO: needed?
 	inode->i_mode =
