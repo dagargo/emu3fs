@@ -446,7 +446,7 @@ static struct file_system_type emu3_fs_type = {
 	.fs_flags = FS_REQUIRES_DEV,
 };
 
-static int __init init(void)
+static int __init emu3_init(void)
 {
 	int err;
 
@@ -460,15 +460,15 @@ static int __init init(void)
 	return err;
 }
 
-static void __exit exit(void)
+static void __exit emu3_exit(void)
 {
 	unregister_filesystem(&emu3_fs_type);
 	destroy_inodecache();
 	printk(KERN_INFO "Exit %s.\n", EMU3_MODULE_NAME);
 }
 
-module_init(init);
-module_exit(exit);
+module_init(emu3_init);
+module_exit(emu3_exit);
 
 MODULE_LICENSE("GPL");
 
