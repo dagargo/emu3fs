@@ -88,8 +88,8 @@ static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
 	buf->f_bavail = buf->f_bfree;
 	buf->f_files = emu3_get_free_ids(info);
 	buf->f_ffree = EMU3_MAX_FILES - buf->f_files;
-	buf->f_fsid.val[0] = (u32) id;
-	buf->f_fsid.val[1] = (u32) (id >> 32);
+	buf->f_fsid.val[0] = (u32)id;
+	buf->f_fsid.val[1] = (u32)(id >> 32);
 	buf->f_namelen = LENGTH_FILENAME;
 	return 0;
 }
@@ -103,12 +103,12 @@ void emu3_mark_as_non_empty(struct super_block *sb)
 	int i;
 
 	bhinfo = sb_bread(sb, info->start_info_block);
-	data = (short int *)bhinfo->b_data;
+	data = (short int*)bhinfo->b_data;
 
 	//The 7 short from data[9] on look like a list of used blocks of the directory
 	if (data[9] == 0xffff) {
 		bh1 = sb_bread(sb, 1);
-		key = (short int)((short int *)bh1->b_data)[0]++;
+		key = (short int)((short int*)bh1->b_data)[0]++;
 		mark_buffer_dirty(bh1);
 		brelse(bh1);
 	} else
@@ -192,7 +192,7 @@ void emu3_init_cluster_list(struct inode *inode)
 	struct emu3_inode *e3i = EMU3_I(inode);
 
 	info->cluster_list[e3i->start_cluster] =
-	    cpu_to_le16(LAST_CLUSTER_OF_FILE);
+		cpu_to_le16(LAST_CLUSTER_OF_FILE);
 }
 
 void emu3_clear_cluster_list(struct inode *inode)
@@ -226,7 +226,7 @@ void emu3_update_cluster_list(struct inode *inode)
 			info->cluster_list[last_cluster] = 0;
 		else
 			info->cluster_list[last_cluster] =
-			    cpu_to_le16(LAST_CLUSTER_OF_FILE);
+				cpu_to_le16(LAST_CLUSTER_OF_FILE);
 		last_cluster = next;
 		pruning = 1;
 	}
@@ -247,23 +247,23 @@ int emu3_next_free_cluster(struct emu3_sb_info *info)
 sector_t emu3_get_phys_block(struct inode * inode, sector_t block)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
-	int cluster = ((int)block) / info->blocks_per_cluster;	//cluster amount
+	int cluster = ((int)block) / info->blocks_per_cluster;  //cluster amount
 	int offset = ((int)block) % info->blocks_per_cluster;
 
 	cluster = emu3_get_cluster(inode, cluster);
 	if (cluster == -1)
 		return -1;
 	return info->start_data_block +
-	    ((cluster - 1) * info->blocks_per_cluster) + offset;
+	       ((cluster - 1) * info->blocks_per_cluster) + offset;
 }
 
 static const struct super_operations emu3_super_operations = {
-	.alloc_inode = emu3_alloc_inode,
-	.destroy_inode = emu3_destroy_inode,
-	.write_inode = emu3_write_inode,
-	.evict_inode = emu3_evict_inode,
-	.put_super = emu3_put_super,
-	.statfs = emu3_statfs
+	.alloc_inode	= emu3_alloc_inode,
+	.destroy_inode	= emu3_destroy_inode,
+	.write_inode	= emu3_write_inode,
+	.evict_inode	= emu3_evict_inode,
+	.put_super	= emu3_put_super,
+	.statfs		= emu3_statfs
 };
 
 void emu3_write_cluster_list(struct super_block *sb)
@@ -302,11 +302,10 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 	struct buffer_head *sbh;
 	unsigned char *e3sb;
 	struct inode *inode;
-	int err = 0;
+	int i, j, size, err = 0;
 	unsigned int *parameters;
 	struct emu3_dentry *e3d;
 	struct buffer_head *bh;
-	int i, j;
 
 	if (sb_set_blocksize(sb, EMU3_BSIZE) != EMU3_BSIZE) {
 		printk(KERN_ERR
@@ -323,112 +322,114 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 
 	sbh = sb_bread(sb, 0);
 
-	if (sbh) {
-		e3sb = (unsigned char *)sbh->b_data;
+	if (!sbh) {
+		err = -EIO;
+		goto out1;
+	}
 
-		//Check EMU3 string
-		if (strncmp(EMU3_FS_SIGNATURE, e3sb, 4) != 0) {
-			err = -EINVAL;
-			printk(KERN_ERR "%s: volume is not an EMU3 disk.",
-			       EMU3_MODULE_NAME);
-		} else {
-			parameters = (unsigned int *)e3sb;
+	e3sb = (unsigned char*)sbh->b_data;
 
-			info->blocks = cpu_to_le32(parameters[1]);	//TODO: add 1 ??? Do we really use this?
-			info->start_info_block = cpu_to_le32(parameters[2]);
-			info->info_blocks = cpu_to_le32(parameters[3]);
-			info->start_root_dir_block = cpu_to_le32(parameters[4]);
-			info->root_dir_blocks = cpu_to_le32(parameters[5]);
-			info->start_cluster_list_block =
-			    cpu_to_le32(parameters[6]);
-			info->cluster_list_blocks = cpu_to_le32(parameters[7]);
-			info->start_data_block = cpu_to_le32(parameters[8]);
-			info->blocks_per_cluster =
-			    (0x10000 << (e3sb[0x28] - 1)) / EMU3_BSIZE;
-			info->clusters =
-			    parameters[9] / (e3sb[0x28] >= 5 ? 2 : 1);
+	//Check EMU3 string
+	if (strncmp(EMU3_FS_SIGNATURE, e3sb, 4) != 0) {
+		printk(KERN_ERR "%s: volume is not an EMU3 disk.", EMU3_MODULE_NAME);
+		err = -EINVAL;
+		goto out2;
+	}
 
-			//Now it's time to read the cluster list...
-			info->cluster_list =
-			    kzalloc(EMU3_BSIZE * info->cluster_list_blocks,
-				    GFP_KERNEL);
-			if (!info->cluster_list)
-				return -ENOMEM;
-			emu3_read_cluster_list(sb);
-			//... and the inode id list.
-			info->id_list =
-			    kzalloc(sizeof(int) * EMU3_MAX_REGULAR_FILE,
-				    GFP_KERNEL);
-			if (!info->id_list)
-				return -ENOMEM;
-			//Done.
+	parameters = (unsigned int*)e3sb;
 
-			//We need to map the used inodes
-			for (i = 0; i < info->root_dir_blocks; i++) {
-				bh = sb_bread(sb,
-					      info->start_root_dir_block + i);
+	info->blocks = cpu_to_le32(parameters[1]); //TODO: add 1 ??? Do we really use this?
+	info->start_info_block = cpu_to_le32(parameters[2]);
+	info->info_blocks = cpu_to_le32(parameters[3]);
+	info->start_root_dir_block = cpu_to_le32(parameters[4]);
+	info->root_dir_blocks = cpu_to_le32(parameters[5]);
+	info->start_cluster_list_block = cpu_to_le32(parameters[6]);
+	info->cluster_list_blocks = cpu_to_le32(parameters[7]);
+	info->start_data_block = cpu_to_le32(parameters[8]);
+	info->blocks_per_cluster = (0x10000 << (e3sb[0x28] - 1)) / EMU3_BSIZE;
+	info->clusters = parameters[9] / (e3sb[0x28] >= 5 ? 2 : 1);
 
-				e3d = (struct emu3_dentry *)bh->b_data;
+	//Now it's time to read the cluster list...
+	size = EMU3_BSIZE * info->cluster_list_blocks;
+	info->cluster_list = kzalloc(size, GFP_KERNEL);
 
-				for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
-					//We only map the regular files
-					if (IS_EMU3_FILE(e3d)) {
-						if (e3d->type != FTYPE_DEL
-						    && e3d->id <
-						    EMU3_MAX_REGULAR_FILE)
-							info->id_list[e3d->id] =
-							    1;
-						else
-							info->id_list[e3d->id] =
-							    0;
-					}
-					e3d++;
-				}
-				brelse(bh);
+	if (!info->cluster_list) {
+		err = -ENOMEM;
+		goto out2;
+	}
+
+	emu3_read_cluster_list(sb);
+
+	//... and the inode id list.
+	size = sizeof(int) * EMU3_MAX_REGULAR_FILE;
+	info->id_list = kzalloc(size, GFP_KERNEL);
+
+	if (!info->id_list) {
+		err = -ENOMEM;
+		goto out3;
+	}
+
+	//We need to map the used inodes
+	for (i = 0; i < info->root_dir_blocks; i++) {
+		bh = sb_bread(sb, info->start_root_dir_block + i);
+
+		e3d = (struct emu3_dentry *)bh->b_data;
+
+		for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
+			//We only map the regular files
+			if (IS_EMU3_FILE(e3d)) {
+				if (e3d->type != FTYPE_DEL && e3d->id < EMU3_MAX_REGULAR_FILE)
+					info->id_list[e3d->id] = 1;
+				else
+					info->id_list[e3d->id] = 0;
 			}
-			//Calculations done.
-
-			printk("%s: %d blocks, %d clusters, b/c %d.\n",
-			       EMU3_MODULE_NAME, info->blocks, info->clusters,
-			       info->blocks_per_cluster);
-			printk("%s: info init block @ %d + %d blocks.\n",
-			       EMU3_MODULE_NAME, info->start_info_block,
-			       info->info_blocks);
-			printk
-			    ("%s: cluster list init block @ %d + %d blocks.\n",
-			     EMU3_MODULE_NAME, info->start_cluster_list_block,
-			     info->cluster_list_blocks);
-			printk("%s: root init block @ %d + %d blocks.\n",
-			       EMU3_MODULE_NAME, info->start_root_dir_block,
-			       info->root_dir_blocks);
-			printk("%s: data init block @ %d + %d clusters.\n",
-			       EMU3_MODULE_NAME, info->start_data_block,
-			       info->clusters);
-
-			sb->s_op = &emu3_super_operations;
-
-			inode = emu3_get_inode(sb, ROOT_DIR_INODE_ID);
-
-			if (!inode)
-				err = -EIO;
-			else {
-				sb->s_root = d_make_root(inode);
-				if (!sb->s_root) {
-					iput(inode);
-					err = -EIO;
-				}
-			}
+			e3d++;
 		}
+		brelse(bh);
 	}
 
-	if (!err)
+	printk("%s: %d blocks, %d clusters, b/c %d.\n", EMU3_MODULE_NAME,
+	       info->blocks, info->clusters, info->blocks_per_cluster);
+	printk("%s: info init block @ %d + %d blocks.\n", EMU3_MODULE_NAME,
+	       info->start_info_block, info->info_blocks);
+	printk("%s: cluster list init block @ %d + %d blocks.\n", EMU3_MODULE_NAME,
+	       info->start_cluster_list_block, info->cluster_list_blocks);
+	printk("%s: root init block @ %d + %d blocks.\n", EMU3_MODULE_NAME,
+	       info->start_root_dir_block, info->root_dir_blocks);
+	printk("%s: data init block @ %d + %d clusters.\n", EMU3_MODULE_NAME,
+	       info->start_data_block, info->clusters);
+
+	sb->s_op = &emu3_super_operations;
+
+	inode = emu3_get_inode(sb, ROOT_DIR_INODE_ID);
+
+	if (!inode) {
+		err = -EIO;
+		goto out4;
+	}
+
+	sb->s_root = d_make_root(inode);
+	if (!sb->s_root) {
+		iput(inode);
+		err = -ENOMEM;
+		goto out4;
+	}
+
+	if (!err) {
 		mutex_init(&info->lock);
-	else {
-		kfree(info);
-		sb->s_fs_info = NULL;
+		brelse(sbh);
+		return 0;
 	}
 
+out4:
+	kfree(info->id_list);
+out3:
+	kfree(info->cluster_list);
+out2:
 	brelse(sbh);
+out1:
+	kfree(info);
+	sb->s_fs_info = NULL;
 	return err;
 }
 
@@ -439,11 +440,11 @@ static struct dentry *emu3_fs_mount(struct file_system_type *fs_type,
 }
 
 static struct file_system_type emu3_fs_type = {
-	.owner = THIS_MODULE,
-	.name = "emu3",
-	.mount = emu3_fs_mount,
-	.kill_sb = kill_block_super,
-	.fs_flags = FS_REQUIRES_DEV,
+	.owner		= THIS_MODULE,
+	.name		= "emu3",
+	.mount		= emu3_fs_mount,
+	.kill_sb	= kill_block_super,
+	.fs_flags	= FS_REQUIRES_DEV,
 };
 
 static int __init emu3_init(void)
