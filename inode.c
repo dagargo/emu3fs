@@ -244,9 +244,9 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long id)
 	    &emu3_file_operations_file;
 	inode->i_blocks = file_block_size;
 	inode->i_size = file_size;
-	inode->i_atime = CURRENT_TIME;
-	inode->i_mtime = CURRENT_TIME;
-	inode->i_ctime = CURRENT_TIME;
+	inode->i_atime = current_time(inode);
+	inode->i_mtime = current_time(inode);
+	inode->i_ctime = current_time(inode);
 	if (id != ROOT_DIR_INODE_ID) {
 		e3i = EMU3_I(inode);
 		e3i->start_cluster = e3d->start_cluster;

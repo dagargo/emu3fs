@@ -172,7 +172,7 @@ emu3_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl)
 	}
 
 	inode_init_owner(inode, dir, mode);
-	inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME_SEC;
+	inode->i_mtime = inode->i_atime = inode->i_ctime = current_time(inode);
 	inode->i_blocks = 0;
 	inode->i_op = &emu3_inode_operations_file;
 	inode->i_fop = &emu3_file_operations_file;
@@ -235,7 +235,7 @@ emu3_add_entry(struct inode *dir, const unsigned char *name, int namelen,
 	e3d->bytes = cpu_to_le16(0);
 	e3d->type = FTYPE_STD;
 	memset(e3d->props, 0, 5);
-	dir->i_mtime = CURRENT_TIME_SEC;
+	dir->i_mtime = current_time(dir);
 	mark_buffer_dirty_inode(b, dir);
 	brelse(b);
 
@@ -283,7 +283,7 @@ static int emu3_unlink(struct inode *dir, struct dentry *dentry)
 	mutex_lock(&info->lock);
 	e3d->type = FTYPE_DEL;
 	mark_buffer_dirty_inode(b, dir);
-	dir->i_ctime = dir->i_mtime = CURRENT_TIME_SEC;
+	dir->i_ctime = dir->i_mtime = current_time(dir);
 	mark_inode_dirty(dir);
 	inode->i_ctime = dir->i_ctime;
 	inode_dec_link_count(inode);
@@ -327,7 +327,7 @@ emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
 	memcpy(e3d->name, new_dentry->d_name.name, namelen);
 	memset(&e3d->name[namelen], ' ', LENGTH_FILENAME - namelen);
 
-	old_dir->i_ctime = old_dir->i_mtime = CURRENT_TIME_SEC;
+	old_dir->i_ctime = old_dir->i_mtime = current_time(old_dir);
 	mark_inode_dirty(old_dir);
 
 	mark_buffer_dirty_inode(bh, old_dir);
