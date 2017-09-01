@@ -1,6 +1,6 @@
 /*
- *	dir.c
- *	Copyright (C) 2017 David García Goñi <dagargo at gmail dot com>
+ *   dir.c
+ *   Copyright (C) 2017 David García Goñi <dagargo at gmail dot com>
  *
  *   This file is part of emu3fs.
  *
@@ -9,7 +9,7 @@
  *   the Free Software Foundation, either version 3 of the License, or
  *   (at your option) any later version.
  *
- *   EMU3 Filesystem Tool is distributed in the hope that it will be useful,
+ *   emu3fs is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *   GNU General Public License for more details.
