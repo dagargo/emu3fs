@@ -309,7 +309,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 
 	if (sb_set_blocksize(sb, EMU3_BSIZE) != EMU3_BSIZE) {
 		printk(KERN_ERR
-		       "%s: impossible to mount. Linux does not allow 512B block size on this device.",
+		       "%s: 512B block size not allowed on this device",
 		       EMU3_MODULE_NAME);
 		return -EINVAL;
 	}
@@ -331,7 +331,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 
 	//Check EMU3 string
 	if (strncmp(EMU3_FS_SIGNATURE, e3sb, 4) != 0) {
-		printk(KERN_ERR "%s: volume is not an EMU3 disk.",
+		printk(KERN_ERR "%s: volume is not an EMU3 disk",
 		       EMU3_MODULE_NAME);
 		err = -EINVAL;
 		goto out2;
@@ -389,17 +389,18 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 		brelse(bh);
 	}
 
-	printk("%s: %d blocks, %d clusters, b/c %d.\n", EMU3_MODULE_NAME,
+	printk(KERN_INFO "%s: %d blocks, %d clusters, b/c %d", EMU3_MODULE_NAME,
 	       info->blocks, info->clusters, info->blocks_per_cluster);
-	printk("%s: info init block @ %d + %d blocks.\n", EMU3_MODULE_NAME,
-	       info->start_info_block, info->info_blocks);
-	printk("%s: cluster list init block @ %d + %d blocks.\n",
+	printk(KERN_INFO "%s: info init block @ %d + %d blocks",
+	       EMU3_MODULE_NAME, info->start_info_block, info->info_blocks);
+	printk(KERN_INFO "%s: cluster list init block @ %d + %d blocks",
 	       EMU3_MODULE_NAME, info->start_cluster_list_block,
 	       info->cluster_list_blocks);
-	printk("%s: root init block @ %d + %d blocks.\n", EMU3_MODULE_NAME,
-	       info->start_root_dir_block, info->root_dir_blocks);
-	printk("%s: data init block @ %d + %d clusters.\n", EMU3_MODULE_NAME,
-	       info->start_data_block, info->clusters);
+	printk(KERN_INFO "%s: root init block @ %d + %d blocks",
+	       EMU3_MODULE_NAME, info->start_root_dir_block,
+	       info->root_dir_blocks);
+	printk(KERN_INFO "%s: data init block @ %d + %d clusters",
+	       EMU3_MODULE_NAME, info->start_data_block, info->clusters);
 
 	sb->s_op = &emu3_super_operations;
 
@@ -453,7 +454,7 @@ static int __init emu3_init(void)
 {
 	int err;
 
-	printk(KERN_INFO "Init %s.\n", EMU3_MODULE_NAME);
+	printk(KERN_INFO "%s: init", EMU3_MODULE_NAME);
 	err = init_inodecache();
 	if (err)
 		return err;
@@ -467,7 +468,7 @@ static void __exit emu3_exit(void)
 {
 	unregister_filesystem(&emu3_fs_type);
 	destroy_inodecache();
-	printk(KERN_INFO "Exit %s.\n", EMU3_MODULE_NAME);
+	printk(KERN_INFO "%s: exit", EMU3_MODULE_NAME);
 }
 
 module_init(emu3_init);

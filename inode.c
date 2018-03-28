@@ -116,8 +116,6 @@ int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 
 	mutex_lock(&info->lock);
 
-	//printk("%s: writing to inode %d (kernel %ld)...\n", EMU3_MODULE_NAME, ino, inode->i_ino);
-
 	e3d = emu3_find_dentry_by_id(inode->i_sb, ino, &bh);
 	if (!e3d) {
 		mutex_unlock(&info->lock);
@@ -161,8 +159,7 @@ emu3_file_block_count(struct emu3_sb_info *sb,
 	unsigned int blocks = cpu_to_le16(e3d->blocks);
 
 	if (blocks > sb->blocks_per_cluster) {
-		//TODO: check message && ERROR
-		printk(KERN_ERR "%s. EOF wrong in file id %d.\n",
+		printk(KERN_ERR "%s: wrong EOF in file with id %d",
 		       EMU3_MODULE_NAME, EMU3_I_ID(e3d));
 		return -1;
 	}

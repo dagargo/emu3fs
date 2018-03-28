@@ -24,7 +24,7 @@
 #include <linux/string.h>
 #include <linux/vfs.h>
 
-#define EMU3_MODULE_NAME "E-mu E3 fs"
+#define EMU3_MODULE_NAME "emu3fs"
 
 #define EMU3_FS_SIGNATURE "EMU3"
 #define EMU3_FS_TYPE 0x454d5533
