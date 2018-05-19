@@ -4,4 +4,6 @@
 *.ko
 modules.order
 Module.symvers
-emu3_fs.mod.c
+*.mod.c
+.cache.mk
+*~
