@@ -229,7 +229,6 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long id)
 	    S_IWOTH;
 	inode->i_uid = current_fsuid();
 	inode->i_gid = current_fsgid();
-	inode->i_version = 1;
 	set_nlink(inode, (id == ROOT_DIR_INODE_ID) ? 2 : 1);
 	inode->i_op =
 	    (id ==
