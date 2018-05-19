@@ -361,7 +361,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 
 	emu3_read_cluster_list(sb);
 
-	//... and the inode id list.
+	//We map the inode id list...
 	size = sizeof(int) * EMU3_MAX_REGULAR_FILE;
 	info->id_list = kzalloc(size, GFP_KERNEL);
 
@@ -369,7 +369,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 		err = -ENOMEM;
 		goto out3;
 	}
-	//We need to map the used inodes
+	//... and the used inodes.
 	for (i = 0; i < info->root_dir_blocks; i++) {
 		bh = sb_bread(sb, info->start_root_dir_block + i);
 
