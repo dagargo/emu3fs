@@ -36,7 +36,6 @@ If you are using a 512B block size capable drive, like the `/dev/cdrom` just do 
 mount -t emu3 /dev/cdrom /mount/point
 ```
 
-### Related project
+## Related project
 
 [emu3bm](https://github.com/dagargo/emu3bm) is a EMU3 bank manager that allows a basic edition of presets and sample export and import.
-
