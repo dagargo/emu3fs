@@ -1,6 +1,6 @@
 /*
  *   emu3_fs.h
- *   Copyright (C) 2018 David García Goñi <dagargo at gmail dot com>
+ *   Copyright (C) 2018 David García Goñi <dagargo@gmail.com>
  *
  *   This file is part of emu3fs.
  *
