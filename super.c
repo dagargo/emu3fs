@@ -209,15 +209,30 @@ void emu3_clear_cluster_list(struct inode *inode)
 	info->cluster_list[next] = 0;
 }
 
+short int emu3_get_inode_clusters(struct inode *inode)
+{
+	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
+	int bytes_per_cluster = info->blocks_per_cluster * EMU3_BSIZE;
+	short int clusters;
+
+	if (inode->i_size == 0)
+		clusters = 1;
+	else {
+		clusters = inode->i_size / bytes_per_cluster;
+		if (inode->i_size % bytes_per_cluster > 0)
+			clusters++;
+	}
+	return clusters;
+}
+
 //Prunes the cluster list to the real inode size
 void emu3_update_cluster_list(struct inode *inode)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
 	short int clusters, last_cluster, next_cluster;
 	int pruning;
-	int bytes_per_cluster = info->blocks_per_cluster * EMU3_BSIZE;
-	clusters = inode->i_size / bytes_per_cluster;
 
+	clusters = emu3_get_inode_clusters(inode);
 	last_cluster = emu3_get_cluster(inode, clusters - 1);
 	pruning = 0;
 	next_cluster = info->cluster_list[last_cluster];
