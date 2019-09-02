@@ -97,30 +97,29 @@ static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
 void emu3_mark_as_non_empty(struct super_block *sb)
 {
 	struct emu3_sb_info *info = EMU3_SB(sb);
-	struct buffer_head *bh1, *bhinfo;
+	struct buffer_head *bhinfo;
 	short int *data;
-	short int key;
 	int i;
 
-	bhinfo = sb_bread(sb, info->start_info_block);
+	bhinfo = sb_bread(sb, 1);
 	data = (short int *)bhinfo->b_data;
+	if (data[0] == 9) {
+		data[0]++;
+		mark_buffer_dirty(bhinfo);
+		brelse(bhinfo);
 
-	//The 7 short from data[9] on look like a list of used blocks of the directory
-	if (data[9] == 0xffff) {
-		bh1 = sb_bread(sb, 1);
-		key = (short int)((short int *)bh1->b_data)[0]++;
-		mark_buffer_dirty(bh1);
-		brelse(bh1);
-	} else
-		key = data[9];
+		//The 7 short from data[9] on look like a list of used blocks of the directory
+		//We mark them as used always.
+		bhinfo = sb_bread(sb, info->start_info_block);
+		data = (short int *)bhinfo->b_data;
 
-	//We mark them as used always.
-	for (i = 0; i < 7; i++)
-		data[9 + i] = key + i;
+		for (i = 0; i < 7; i++)
+			data[9 + i] = 9 + i;
 
-	mark_buffer_dirty(bhinfo);
+		mark_buffer_dirty(bhinfo);
 
-	brelse(bhinfo);
+		brelse(bhinfo);
+	}
 }
 
 static void emu3_put_super(struct super_block *sb)
