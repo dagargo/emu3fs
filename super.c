@@ -213,24 +213,24 @@ void emu3_clear_cluster_list(struct inode *inode)
 void emu3_update_cluster_list(struct inode *inode)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
-	short int clusters, last_cluster;
+	short int clusters, last_cluster, next_cluster;
 	int pruning;
+	int bytes_per_cluster = info->blocks_per_cluster * EMU3_BSIZE;
+	clusters = inode->i_size / bytes_per_cluster;
 
-	emu3_get_file_geom(inode, &clusters, NULL, NULL);
 	last_cluster = emu3_get_cluster(inode, clusters - 1);
 	pruning = 0;
-	while (info->cluster_list[last_cluster] !=
-	       cpu_to_le16(LAST_CLUSTER_OF_FILE)) {
-		int next = info->cluster_list[last_cluster];
+	next_cluster = info->cluster_list[last_cluster];
+	while (next_cluster != le16_to_cpu(LAST_CLUSTER_OF_FILE)) {
 		if (pruning)
 			info->cluster_list[last_cluster] = 0;
 		else
 			info->cluster_list[last_cluster] =
-			    cpu_to_le16(LAST_CLUSTER_OF_FILE);
-		last_cluster = next;
+			    le16_to_cpu(LAST_CLUSTER_OF_FILE);
+		last_cluster = next_cluster;
+		next_cluster = info->cluster_list[last_cluster];
 		pruning = 1;
 	}
-
 	if (pruning)
 		info->cluster_list[last_cluster] = 0;
 }
@@ -478,5 +478,5 @@ module_exit(emu3_exit);
 
 MODULE_LICENSE("GPL");
 
-MODULE_AUTHOR("David García Goñi <dagargo at gmail dot com>");
-MODULE_DESCRIPTION("E-mu E3 sampler family filesystem for Linux");
+MODULE_AUTHOR("David García Goñi <dagargo@gmail.com>");
+MODULE_DESCRIPTION("E-Mu EIII sampler family filesystem for Linux");
