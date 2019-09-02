@@ -1,6 +1,6 @@
 # emu3fs
 
-emu3fs is a Linux kernel module that allows to read from and write to disks formatted in an E-MU emu3 sampler family filesystem. The samplers using this filesystem are the emulator 3, emulator 3x and the ESI family.
+emu3fs is a Linux kernel module that allows to read from and write to disks formatted in an E-Mu EIII sampler family filesystem. The samplers using this filesystem are the emulator 3, emulator 3x and the ESI family.
 Currently, it has been tested to work with CDs, Zip drives and HDs up to 2GB.
 It's distributed under the terms of the GPL v3.
 
@@ -34,6 +34,16 @@ CDs need to be mounted through a loop device when the CD reader is not SCSI. Thi
 If you are using a 512B block size capable drive, like the `/dev/cdrom` just do the following and forget about the loop devices.
 ```
 mount -t emu3 /dev/cdrom /mount/point
+```
+
+## Testing
+
+You can run some simple tests from the `tests` directory. The script mounts a clean image and run some commands on it. **Beware it uses `sudo` to run some commands**, so you might be asked for your password.
+
+Also, you will need to pass the `EMU3_MOUNTPOINT` variable.
+
+```
+$ EMU3_MOUNTPOINT=/media/emu3 ./tests.sh
 ```
 
 ## Related project
