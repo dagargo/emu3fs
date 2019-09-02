@@ -152,7 +152,7 @@ int emu3_expand_cluster_list(struct inode *inode, sector_t block)
 	int next = e3i->start_cluster;
 	int i = 0;
 
-	while (info->cluster_list[next] != cpu_to_le16(LAST_CLUSTER_OF_FILE)) {
+	while (info->cluster_list[next] != le16_to_cpu(LAST_CLUSTER_OF_FILE)) {
 		next = info->cluster_list[next];
 		i++;
 	}
@@ -164,7 +164,7 @@ int emu3_expand_cluster_list(struct inode *inode, sector_t block)
 		next = new;
 		i++;
 	}
-	info->cluster_list[next] = cpu_to_le16(LAST_CLUSTER_OF_FILE);
+	info->cluster_list[next] = le16_to_cpu(LAST_CLUSTER_OF_FILE);
 	return 0;
 }
 
@@ -178,7 +178,7 @@ int emu3_get_cluster(struct inode *inode, int n)
 
 	while (i < n) {
 		if (info->cluster_list[next] ==
-		    cpu_to_le16(LAST_CLUSTER_OF_FILE))
+		    le16_to_cpu(LAST_CLUSTER_OF_FILE))
 			return -1;
 		next = info->cluster_list[next];
 		i++;
@@ -192,7 +192,7 @@ void emu3_init_cluster_list(struct inode *inode)
 	struct emu3_inode *e3i = EMU3_I(inode);
 
 	info->cluster_list[e3i->start_cluster] =
-	    cpu_to_le16(LAST_CLUSTER_OF_FILE);
+	    le16_to_cpu(LAST_CLUSTER_OF_FILE);
 }
 
 void emu3_clear_cluster_list(struct inode *inode)
@@ -201,7 +201,7 @@ void emu3_clear_cluster_list(struct inode *inode)
 	struct emu3_inode *e3i = EMU3_I(inode);
 	int next = e3i->start_cluster;
 
-	while (info->cluster_list[next] != cpu_to_le16(LAST_CLUSTER_OF_FILE)) {
+	while (info->cluster_list[next] != le16_to_cpu(LAST_CLUSTER_OF_FILE)) {
 		int prev = next;
 		next = info->cluster_list[next];
 		info->cluster_list[prev] = 0;
@@ -230,6 +230,7 @@ void emu3_update_cluster_list(struct inode *inode)
 		last_cluster = next;
 		pruning = 1;
 	}
+
 	if (pruning)
 		info->cluster_list[last_cluster] = 0;
 }
@@ -244,7 +245,7 @@ int emu3_next_free_cluster(struct emu3_sb_info *info)
 	return -ENOSPC;
 }
 
-sector_t emu3_get_phys_block(struct inode * inode, sector_t block)
+sector_t emu3_get_phys_block(struct inode *inode, sector_t block)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
 	int cluster = ((int)block) / info->blocks_per_cluster;	//cluster amount
@@ -339,16 +340,16 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 
 	parameters = (unsigned int *)e3sb;
 
-	info->blocks = cpu_to_le32(parameters[1]);	//TODO: add 1 ??? Do we really use this?
-	info->start_info_block = cpu_to_le32(parameters[2]);
-	info->info_blocks = cpu_to_le32(parameters[3]);
-	info->start_root_dir_block = cpu_to_le32(parameters[4]);
-	info->root_dir_blocks = cpu_to_le32(parameters[5]);
-	info->start_cluster_list_block = cpu_to_le32(parameters[6]);
-	info->cluster_list_blocks = cpu_to_le32(parameters[7]);
-	info->start_data_block = cpu_to_le32(parameters[8]);
+	info->blocks = le32_to_cpu(parameters[1]);	//TODO: add 1 ??? Do we really use this?
+	info->start_info_block = le32_to_cpu(parameters[2]);
+	info->info_blocks = le32_to_cpu(parameters[3]);
+	info->start_root_dir_block = le32_to_cpu(parameters[4]);
+	info->root_dir_blocks = le32_to_cpu(parameters[5]);
+	info->start_cluster_list_block = le32_to_cpu(parameters[6]);
+	info->cluster_list_blocks = le32_to_cpu(parameters[7]);
+	info->start_data_block = le32_to_cpu(parameters[8]);
 	info->blocks_per_cluster = (0x10000 << (e3sb[0x28] - 1)) / EMU3_BSIZE;
-	info->clusters = parameters[9] / (e3sb[0x28] >= 5 ? 2 : 1);
+	info->clusters = le32_to_cpu(parameters[9]) / (e3sb[0x28] >= 5 ? 2 : 1);
 
 	//Now it's time to read the cluster list...
 	size = EMU3_BSIZE * info->cluster_list_blocks;
@@ -389,8 +390,9 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 		brelse(bh);
 	}
 
-	printk(KERN_INFO "%s: %d blocks, %d clusters, b/c %d", EMU3_MODULE_NAME,
-	       info->blocks, info->clusters, info->blocks_per_cluster);
+	printk(KERN_INFO "%s: %d blocks, %d clusters, %d blocks/cluster",
+	       EMU3_MODULE_NAME, info->blocks, info->clusters,
+	       info->blocks_per_cluster);
 	printk(KERN_INFO "%s: info init block @ %d + %d blocks",
 	       EMU3_MODULE_NAME, info->start_info_block, info->info_blocks);
 	printk(KERN_INFO "%s: cluster list init block @ %d + %d blocks",

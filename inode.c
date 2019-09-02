@@ -66,9 +66,9 @@ static int id_comparator(void *v, struct emu3_dentry *e3d)
 
 struct emu3_dentry *emu3_find_dentry(struct super_block *sb,
 				     struct buffer_head **bh,
-				     void *v, int (*comparator) (void *,
-								 struct
-								 emu3_dentry *))
+				     void *v, int (*comparator)(void *,
+								struct
+								emu3_dentry *))
 {
 	struct emu3_sb_info *info = EMU3_SB(sb);
 	struct emu3_dentry *e3d;

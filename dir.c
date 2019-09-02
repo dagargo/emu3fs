@@ -229,10 +229,10 @@ emu3_add_entry(struct inode *dir, const unsigned char *name, int namelen,
 	memset(&e3d->name[namelen], ' ', LENGTH_FILENAME - namelen);
 	e3d->unknown = 0;
 	e3d->id = id;
-	e3d->start_cluster = cpu_to_le16(*start_cluster);
-	e3d->clusters = cpu_to_le16(1);
-	e3d->blocks = cpu_to_le16(1);
-	e3d->bytes = cpu_to_le16(0);
+	e3d->start_cluster = le16_to_cpu(*start_cluster);
+	e3d->clusters = le16_to_cpu(1);
+	e3d->blocks = le16_to_cpu(1);
+	e3d->bytes = le16_to_cpu(0);
 	e3d->type = FTYPE_STD;
 	memset(e3d->props, 0, 5);
 	dir->i_mtime = current_time(dir);
