@@ -20,7 +20,6 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/writeback.h>
 
 #include "emu3_fs.h"
 
