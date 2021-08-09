@@ -56,7 +56,7 @@ void emu3_init_once(void *foo)
 
 static int id_comparator(void *v, struct emu3_dentry *e3d)
 {
-	int id = *((int *)v);
+	int id = *((unsigned long *)v);
 
 	if (e3d->id == id)
 		return 0;
