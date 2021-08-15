@@ -97,7 +97,7 @@ static int emu3_iterate(struct file *f, struct dir_context *ctx)
 		b = sb_bread(dir->i_sb, info->start_dir_content_block + i);
 		e3d = (struct emu3_dentry *)b->b_data;
 		for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
-			if (IS_EMU3_FILE(e3d) && e3d->type != FTYPE_DEL) {	//Mark as deleted files are not shown
+			if (IS_EMU3_FILE(e3d) && e3d->fattrs.type != FTYPE_DEL) {	//Mark as deleted files are not shown
 				if (ctx->pos == k) {
 					char fixed[LENGTH_FILENAME];
 					int size;
@@ -229,12 +229,12 @@ emu3_add_entry(struct inode *dir, const unsigned char *name, int namelen,
 	memset(&e3d->name[namelen], ' ', LENGTH_FILENAME - namelen);
 	e3d->unknown = 0;
 	e3d->id = id;
-	e3d->start_cluster = le16_to_cpu(*start_cluster);
-	e3d->clusters = le16_to_cpu(1);
-	e3d->blocks = le16_to_cpu(1);
-	e3d->bytes = le16_to_cpu(0);
-	e3d->type = FTYPE_STD;
-	memset(e3d->props, 0, 5);
+	e3d->fattrs.start_cluster = le16_to_cpu(*start_cluster);
+	e3d->fattrs.clusters = le16_to_cpu(1);
+	e3d->fattrs.blocks = le16_to_cpu(1);
+	e3d->fattrs.bytes = le16_to_cpu(0);
+	e3d->fattrs.type = FTYPE_STD;
+	memset(e3d->fattrs.props, 0, 5);
 	dir->i_mtime = current_time(dir);
 	mark_buffer_dirty_inode(b, dir);
 	brelse(b);
@@ -281,7 +281,7 @@ static int emu3_unlink(struct inode *dir, struct dentry *dentry)
 		return -ENOENT;
 
 	mutex_lock(&info->lock);
-	e3d->type = FTYPE_DEL;
+	e3d->fattrs.type = FTYPE_DEL;
 	mark_buffer_dirty_inode(b, dir);
 	dir->i_ctime = dir->i_mtime = current_time(dir);
 	mark_inode_dirty(dir);

@@ -82,7 +82,7 @@ struct emu3_dentry *emu3_find_dentry(struct super_block *sb,
 		e3d = (struct emu3_dentry *)(*bh)->b_data;
 
 		for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
-			if (IS_EMU3_FILE(e3d) && e3d->type != FTYPE_DEL)
+			if (IS_EMU3_FILE(e3d) && e3d->fattrs.type != FTYPE_DEL)
 				if (comparator(v, e3d) == 0)
 					return e3d;
 			e3d++;
@@ -123,10 +123,11 @@ int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 
 	emu3_update_cluster_list(inode);
 
-	emu3_get_file_geom(inode, &e3d->clusters, &e3d->blocks, &e3d->bytes);
+	emu3_get_file_geom(inode, &e3d->fattrs.clusters, &e3d->fattrs.blocks,
+			   &e3d->fattrs.bytes);
 
 	e3i = EMU3_I(inode);
-	e3d->start_cluster = e3i->start_cluster;
+	e3d->fattrs.start_cluster = e3i->start_cluster;
 
 	mark_buffer_dirty(bh);
 	if (wbc->sync_mode == WB_SYNC_ALL) {
@@ -153,9 +154,9 @@ emu3_file_block_count(struct emu3_sb_info *sb,
 		      struct emu3_dentry *e3d,
 		      int *start, int *bsize, int *fsize)
 {
-	unsigned int start_cluster = cpu_to_le16(e3d->start_cluster) - 1;
-	unsigned int clusters = cpu_to_le16(e3d->clusters) - 1;
-	unsigned int blocks = cpu_to_le16(e3d->blocks);
+	unsigned int start_cluster = cpu_to_le16(e3d->fattrs.start_cluster) - 1;
+	unsigned int clusters = cpu_to_le16(e3d->fattrs.clusters) - 1;
+	unsigned int blocks = cpu_to_le16(e3d->fattrs.blocks);
 
 	if (blocks > sb->blocks_per_cluster) {
 		printk(KERN_ERR "%s: wrong EOF in file with id %d",
@@ -163,7 +164,7 @@ emu3_file_block_count(struct emu3_sb_info *sb,
 		return -1;
 	}
 	*bsize = (clusters * sb->blocks_per_cluster) + blocks;
-	*fsize = (((*bsize) - 1) * EMU3_BSIZE) + cpu_to_le16(e3d->bytes);
+	*fsize = (((*bsize) - 1) * EMU3_BSIZE) + cpu_to_le16(e3d->fattrs.bytes);
 	*start =
 	    (start_cluster * sb->blocks_per_cluster) + sb->start_data_block;
 	return 0;
@@ -244,7 +245,7 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long id)
 	inode->i_ctime = current_time(inode);
 	if (id != ROOT_DIR_INODE_ID) {
 		e3i = EMU3_I(inode);
-		e3i->start_cluster = e3d->start_cluster;
+		e3i->start_cluster = e3d->fattrs.start_cluster;
 		inode->i_mapping->a_ops = &emu3_aops;
 		brelse(b);
 	}

@@ -60,12 +60,14 @@
 #define FTYPE_UPD 0x83		//Used by the first file after a deleted file
 #define FTYPE_SYS 0x80
 
+#define EMU3_BLOCKS_PER_DIR 7
+
 #define IS_EMU3_FILE(e3d) 		\
-	(((e3d)->clusters > 0) &&	\
+	(((e3d)->fattrs.clusters > 0) &&	\
 	(							\
-	(e3d)->type == FTYPE_STD || \
-	(e3d)->type == FTYPE_UPD || \
-	(e3d)->type == FTYPE_SYS)	\
+	(e3d)->fattrs.type == FTYPE_STD || \
+	(e3d)->fattrs.type == FTYPE_UPD || \
+	(e3d)->fattrs.type == FTYPE_SYS)	\
 	)
 
 struct emu3_sb_info {
@@ -84,16 +86,27 @@ struct emu3_sb_info {
 	struct mutex lock;
 };
 
-struct emu3_dentry {
-	char name[LENGTH_FILENAME];
-	unsigned char unknown;
-	unsigned char id;	//This can be 0. No inode id in linux can be 0.
+struct emu3_file_attrs {
 	unsigned short start_cluster;
 	unsigned short clusters;
 	unsigned short blocks;
 	unsigned short bytes;
 	unsigned char type;
 	unsigned char props[5];
+};
+
+struct emu3_dir_attrs {
+	unsigned short block_list[EMU3_BLOCKS_PER_DIR];
+};
+
+struct emu3_dentry {
+	char name[LENGTH_FILENAME];
+	unsigned char unknown;
+	unsigned char id;	//This can be 0. No inode id in linux can be 0.
+	union {
+		struct emu3_file_attrs fattrs;
+		struct emu3_dir_attrs dattrs;
+	};
 };
 
 struct emu3_inode {
