@@ -94,7 +94,7 @@ static int emu3_iterate(struct file *f, struct dir_context *ctx)
 
 	k = 2;
 	for (i = 0; i < dir->i_blocks; i++) {
-		b = sb_bread(dir->i_sb, info->start_root_dir_block + i);
+		b = sb_bread(dir->i_sb, info->start_dir_content_block + i);
 		e3d = (struct emu3_dentry *)b->b_data;
 		for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
 			if (IS_EMU3_FILE(e3d) && e3d->type != FTYPE_DEL) {	//Mark as deleted files are not shown
@@ -249,8 +249,8 @@ struct emu3_dentry *emu3_find_empty_dentry(struct super_block *sb,
 	struct emu3_dentry *e3d;
 	int i, j;
 
-	for (i = 0; i < info->root_dir_blocks; i++) {
-		*b = sb_bread(sb, info->start_root_dir_block + i);
+	for (i = 0; i < info->dir_content_blocks; i++) {
+		*b = sb_bread(sb, info->start_dir_content_block + i);
 
 		e3d = (struct emu3_dentry *)(*b)->b_data;
 

@@ -76,8 +76,8 @@ struct emu3_dentry *emu3_find_dentry(struct super_block *sb,
 	if (!info)
 		return NULL;
 
-	for (i = 0; i < info->root_dir_blocks; i++) {
-		*bh = sb_bread(sb, info->start_root_dir_block + i);
+	for (i = 0; i < info->dir_content_blocks; i++) {
+		*bh = sb_bread(sb, info->start_dir_content_block + i);
 
 		e3d = (struct emu3_dentry *)(*bh)->b_data;
 
@@ -200,9 +200,9 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long id)
 	struct buffer_head *b = NULL;
 
 	if (id == ROOT_DIR_INODE_ID) {
-		file_block_start = info->start_root_dir_block;
-		file_block_size = info->root_dir_blocks;
-		file_size = info->root_dir_blocks * EMU3_BSIZE;
+		file_block_start = info->start_dir_content_block;
+		file_block_size = info->dir_content_blocks;
+		file_size = info->dir_content_blocks * EMU3_BSIZE;
 	} else {
 		e3d = emu3_find_dentry_by_id(sb, TO_EMU3_ID(id), &b);
 

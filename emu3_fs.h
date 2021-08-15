@@ -70,10 +70,10 @@
 
 struct emu3_sb_info {
 	unsigned int blocks;
-	unsigned int start_info_block;
-	unsigned int info_blocks;
-	unsigned int start_root_dir_block;
-	unsigned int root_dir_blocks;
+	unsigned int start_root_block;
+	unsigned int root_blocks;
+	unsigned int start_dir_content_block;
+	unsigned int dir_content_blocks;
 	unsigned int start_cluster_list_block;
 	unsigned int cluster_list_blocks;
 	unsigned int start_data_block;

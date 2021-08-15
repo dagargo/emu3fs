@@ -110,7 +110,7 @@ void emu3_mark_as_non_empty(struct super_block *sb)
 
 		//The 7 short from data[9] on look like a list of used blocks of the directory
 		//We mark them as used always.
-		bhinfo = sb_bread(sb, info->start_info_block);
+		bhinfo = sb_bread(sb, info->start_root_block);
 		data = (short int *)bhinfo->b_data;
 
 		for (i = 0; i < 7; i++)
@@ -355,10 +355,10 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 	parameters = (unsigned int *)e3sb;
 
 	info->blocks = le32_to_cpu(parameters[1]);	//TODO: add 1 ??? Do we really use this?
-	info->start_info_block = le32_to_cpu(parameters[2]);
-	info->info_blocks = le32_to_cpu(parameters[3]);
-	info->start_root_dir_block = le32_to_cpu(parameters[4]);
-	info->root_dir_blocks = le32_to_cpu(parameters[5]);
+	info->start_root_block = le32_to_cpu(parameters[2]);
+	info->root_blocks = le32_to_cpu(parameters[3]);
+	info->start_dir_content_block = le32_to_cpu(parameters[4]);
+	info->dir_content_blocks = le32_to_cpu(parameters[5]);
 	info->start_cluster_list_block = le32_to_cpu(parameters[6]);
 	info->cluster_list_blocks = le32_to_cpu(parameters[7]);
 	info->start_data_block = le32_to_cpu(parameters[8]);
@@ -385,8 +385,8 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 		goto out3;
 	}
 	//... and the used inodes.
-	for (i = 0; i < info->root_dir_blocks; i++) {
-		bh = sb_bread(sb, info->start_root_dir_block + i);
+	for (i = 0; i < info->dir_content_blocks; i++) {
+		bh = sb_bread(sb, info->start_dir_content_block + i);
 
 		e3d = (struct emu3_dentry *)bh->b_data;
 
@@ -407,15 +407,15 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 	printk(KERN_INFO "%s: %d blocks, %d clusters, %d blocks/cluster",
 	       EMU3_MODULE_NAME, info->blocks, info->clusters,
 	       info->blocks_per_cluster);
-	printk(KERN_INFO "%s: info init block @ %d + %d blocks",
-	       EMU3_MODULE_NAME, info->start_info_block, info->info_blocks);
-	printk(KERN_INFO "%s: cluster list init block @ %d + %d blocks",
+	printk(KERN_INFO "%s: cluster list start block @ %d + %d blocks",
 	       EMU3_MODULE_NAME, info->start_cluster_list_block,
 	       info->cluster_list_blocks);
-	printk(KERN_INFO "%s: root init block @ %d + %d blocks",
-	       EMU3_MODULE_NAME, info->start_root_dir_block,
-	       info->root_dir_blocks);
-	printk(KERN_INFO "%s: data init block @ %d + %d clusters",
+	printk(KERN_INFO "%s: root start block @ %d + %d blocks",
+	       EMU3_MODULE_NAME, info->start_root_block, info->root_blocks);
+	printk(KERN_INFO "%s: dir content start block @ %d + %d blocks",
+	       EMU3_MODULE_NAME, info->start_dir_content_block,
+	       info->dir_content_blocks);
+	printk(KERN_INFO "%s: data start block @ %d + %d clusters",
 	       EMU3_MODULE_NAME, info->start_data_block, info->clusters);
 
 	sb->s_op = &emu3_super_operations;
