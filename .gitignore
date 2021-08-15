@@ -1,9 +1,11 @@
 /.tmp_versions/
 .*.cmd
 *.o
+*.o.d
 *.ko
 modules.order
 Module.symvers
 *.mod.c
 .cache.mk
+emu3_fs.mod
 *~
