@@ -38,9 +38,11 @@
 
 #define EMU3_I(inode) ((struct emu3_inode *)container_of(inode, struct emu3_inode, vfs_inode))
 
-//This is needed because no inode id can be zero
-#define EMU3_I_ID(e3d) ((e3d->id) + 1)
-#define TO_EMU3_ID(id) (id==ROOT_DIR_INODE_ID?id:(id-1))
+#define EMU3_I_ID_OFFSET_SIZE 4
+#define EMU3_I_ID_OFFSET_MASK ((1 << EMU3_I_ID_OFFSET_SIZE) - 1)
+#define EMU3_I_ID(blknum, offset) ((blknum << EMU3_I_ID_OFFSET_SIZE) | (offset & EMU3_I_ID_OFFSET_MASK))
+#define EMU3_I_ID_GET_BLKNUM(id) (id >> EMU3_I_ID_OFFSET_SIZE)
+#define EMU3_I_ID_GET_OFFSET(id) (id & EMU3_I_ID_OFFSET_MASK)
 
 #define EMU3_MAX_REGULAR_FILE 100
 
@@ -49,9 +51,9 @@
 //100 regular banks + 2 special rom files with fixed ids at 0x6b and 0x6d
 #define EMU3_MAX_FILES 102
 
-#define MAX_ENTRIES_PER_BLOCK 16
+#define EMU3_ENTRIES_PER_BLOCK 16
 
-#define ROOT_DIR_INODE_ID 1024	//Any value is valid as long as is greater than the highest inode id.
+#define EMU3_ROOT_DIR_I_ID 1	//Any value is valid as long as is lower than the first inode ID.
 
 #define LENGTH_FILENAME 16
 
@@ -127,11 +129,6 @@ extern const struct address_space_operations emu3_aops;
 struct inode *emu3_get_inode(struct super_block *, unsigned long);
 
 inline void get_emu3_fulldentry(char *, struct emu3_dentry *);
-
-struct emu3_dentry *emu3_find_dentry(struct super_block *,
-				     struct buffer_head **,
-				     void *,
-				     int (*)(void *, struct emu3_dentry *));
 
 int emu3_add_entry(struct inode *, const unsigned char *, int,
 		   unsigned int *, int *);

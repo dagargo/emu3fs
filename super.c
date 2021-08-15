@@ -390,8 +390,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 
 		e3d = (struct emu3_dentry *)bh->b_data;
 
-		for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
-			//We only map the regular files
+		for (j = 0; j < EMU3_ENTRIES_PER_BLOCK; j++) {
 			if (IS_EMU3_FILE(e3d)) {
 				if (e3d->fattrs.type != FTYPE_DEL
 				    && e3d->id < EMU3_MAX_REGULAR_FILE)
@@ -420,7 +419,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 
 	sb->s_op = &emu3_super_operations;
 
-	inode = emu3_get_inode(sb, ROOT_DIR_INODE_ID);
+	inode = emu3_get_inode(sb, EMU3_ROOT_DIR_I_ID);
 
 	if (!inode) {
 		err = -EIO;

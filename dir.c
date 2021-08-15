@@ -46,10 +46,9 @@ const char *emu3_filename_length(const char *filename, int *size)
 	return NULL;
 }
 
-int name_comparator(void *v, struct emu3_dentry *e3d)
+static int name_comparator(struct dentry *dentry, struct emu3_dentry *e3d)
 {
 	char fixed[LENGTH_FILENAME];
-	struct dentry *dentry = v;
 	int size;
 
 	emu3_filename_fix(e3d->name, fixed);
@@ -59,24 +58,103 @@ int name_comparator(void *v, struct emu3_dentry *e3d)
 	return strncmp(fixed, dentry->d_name.name, size);
 }
 
-static inline struct emu3_dentry *emu3_find_dentry_by_name(struct super_block
-							   *sb, struct dentry
-							   *dentry, struct buffer_head
-							   **b)
+static struct emu3_dentry *emu3_find_dentry_by_name_in_b(struct inode *dir,
+							 struct dentry *dentry,
+							 struct buffer_head **b,
+							 sector_t blknum,
+							 unsigned long *ino)
 {
-	return emu3_find_dentry(sb, b, (void *)dentry, name_comparator);
+	unsigned int i;
+	struct emu3_dentry *e3d;
+
+	*b = sb_bread(dir->i_sb, blknum);
+	e3d = (struct emu3_dentry *)(*b)->b_data;
+	for (i = 0; i < EMU3_ENTRIES_PER_BLOCK; i++) {
+		if (e3d->id && !name_comparator(dentry, e3d)) {
+			if (ino)
+				*ino = EMU3_I_ID(blknum, i);
+			return e3d;
+		}
+		e3d++;
+	}
+	brelse(*b);
+	return NULL;
+}
+
+static struct emu3_dentry *emu3_find_dentry_by_name(struct inode *dir,
+						    struct dentry *dentry,
+						    struct buffer_head **b,
+						    unsigned long *ino)
+{
+	struct emu3_sb_info *info = EMU3_SB(dir->i_sb);
+	struct buffer_head *db;
+	sector_t blknum;
+	unsigned int offset;
+	struct emu3_dentry *e3d;
+	struct emu3_dentry *res;
+	int i;
+
+	if (dir->i_ino == EMU3_ROOT_DIR_I_ID) {
+		for (i = 0; i < info->root_blocks; i++) {
+			blknum = info->start_root_block + i;
+			res =
+			    emu3_find_dentry_by_name_in_b(dir, dentry, b,
+							  blknum, ino);
+			if (res) {
+				return res;
+			}
+
+		}
+		return NULL;
+	}
+
+	blknum = EMU3_I_ID_GET_BLKNUM(dir->i_ino);
+	offset = EMU3_I_ID_GET_OFFSET(dir->i_ino);
+
+	db = sb_bread(dir->i_sb, blknum);
+
+	e3d = (struct emu3_dentry *)(*b)->b_data;
+	e3d += offset;
+
+	if (e3d->id) {
+		//This happens occasionally, hopefully only on single dir images, so we try to fix it.
+		if (e3d->dattrs.block_list[0] < info->start_dir_content_block) {
+			e3d->dattrs.block_list[0] =
+			    info->start_dir_content_block;
+		}
+
+		for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++) {
+			blknum = e3d->dattrs.block_list[i];
+			if (!blknum)
+				break;
+			res =
+			    emu3_find_dentry_by_name_in_b(dir, dentry, b,
+							  blknum, ino);
+			if (res) {
+				brelse(db);
+				return res;
+			}
+		}
+	}
+
+	brelse(db);
+
+	return NULL;
 }
 
 static int emu3_iterate(struct file *f, struct dir_context *ctx)
 {
 	int i, j;
 	loff_t k;
-	struct inode *dir = file_inode(f);
-	struct emu3_sb_info *info = EMU3_SB(dir->i_sb);
+	int size;
+	char fixed[LENGTH_FILENAME];
+	sector_t blknum;
 	struct buffer_head *b;
 	struct emu3_dentry *e3d;
+	struct inode *dir = file_inode(f);
+	struct emu3_sb_info *info = EMU3_SB(dir->i_sb);
 
-	if (dir->i_ino != ROOT_DIR_INODE_ID)
+	if (dir->i_ino != EMU3_ROOT_DIR_I_ID)
 		return -EBADF;
 
 	if (ctx->pos == 0) {
@@ -94,19 +172,18 @@ static int emu3_iterate(struct file *f, struct dir_context *ctx)
 
 	k = 2;
 	for (i = 0; i < dir->i_blocks; i++) {
-		b = sb_bread(dir->i_sb, info->start_dir_content_block + i);
+		blknum = info->start_root_block + i;
+		b = sb_bread(dir->i_sb, blknum);
 		e3d = (struct emu3_dentry *)b->b_data;
-		for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
-			if (IS_EMU3_FILE(e3d) && e3d->fattrs.type != FTYPE_DEL) {	//Mark as deleted files are not shown
+		for (j = 0; j < EMU3_ENTRIES_PER_BLOCK; j++) {
+			if (e3d->id) {
 				if (ctx->pos == k) {
-					char fixed[LENGTH_FILENAME];
-					int size;
 					emu3_filename_fix(e3d->name, fixed);
 					emu3_filename_length(fixed, &size);
 					ctx->pos++;
 					if (!dir_emit
-					    (ctx, fixed, size, EMU3_I_ID(e3d),
-					     DT_REG)) {
+					    (ctx, fixed, size,
+					     EMU3_I_ID(blknum, j), DT_DIR)) {
 						brelse(b);
 						return 0;
 					}
@@ -127,14 +204,15 @@ static struct dentry *emu3_lookup(struct inode *dir, struct dentry *dentry,
 	struct inode *inode = NULL;
 	struct buffer_head *b;
 	struct emu3_dentry *e3d;
+	unsigned long ino;
 
 	if (dentry->d_name.len > LENGTH_FILENAME)
 		return ERR_PTR(-ENAMETOOLONG);
 
-	e3d = emu3_find_dentry_by_name(dir->i_sb, dentry, &b);
+	e3d = emu3_find_dentry_by_name(dir, dentry, &b, &ino);
 
 	if (e3d) {
-		inode = emu3_get_inode(dir->i_sb, EMU3_I_ID(e3d));
+		inode = emu3_get_inode(dir->i_sb, ino);
 		brelse(b);
 		if (IS_ERR(inode))
 			return ERR_CAST(inode);
@@ -254,7 +332,7 @@ struct emu3_dentry *emu3_find_empty_dentry(struct super_block *sb,
 
 		e3d = (struct emu3_dentry *)(*b)->b_data;
 
-		for (j = 0; j < MAX_ENTRIES_PER_BLOCK; j++) {
+		for (j = 0; j < EMU3_ENTRIES_PER_BLOCK; j++) {
 			if (!IS_EMU3_FILE(e3d))
 				return e3d;
 			e3d++;
@@ -275,7 +353,7 @@ static int emu3_unlink(struct inode *dir, struct dentry *dentry)
 	if (dentry->d_name.len > LENGTH_FILENAME)
 		return -ENAMETOOLONG;
 
-	e3d = emu3_find_dentry_by_name(dir->i_sb, dentry, &b);
+	e3d = emu3_find_dentry_by_name(dir, dentry, &b, NULL);
 
 	if (e3d == NULL)
 		return -ENOENT;
@@ -318,7 +396,7 @@ emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
 
 	mutex_lock(&info->lock);
 
-	e3d = emu3_find_dentry_by_name(sb, old_dentry, &bh);
+	e3d = emu3_find_dentry_by_name(old_dir, old_dentry, &bh, NULL);
 	if (!e3d) {
 		mutex_unlock(&info->lock);
 		return -ENOENT;
