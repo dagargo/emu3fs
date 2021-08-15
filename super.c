@@ -493,4 +493,4 @@ module_exit(emu3_exit);
 MODULE_LICENSE("GPL");
 
 MODULE_AUTHOR("David García Goñi <dagargo@gmail.com>");
-MODULE_DESCRIPTION("E-Mu EIII sampler family filesystem for Linux");
+MODULE_DESCRIPTION("E-Mu EIII filesystem for Linux");
