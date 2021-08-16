@@ -23,9 +23,9 @@
 
 #include "emu3_fs.h"
 
-#define EMU3_COMMON_PERM (S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH)
-#define EMU3_DIR_PERM (S_IFDIR | S_IXUSR | S_IXGRP | S_IXOTH)
-#define EMU3_FILE_PERM (S_IFREG)
+#define EMU3_COMMON_MODE (S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR)
+#define EMU3_DIR_MODE (S_IFDIR | S_IXUSR | S_IXGRP | S_IXOTH)
+#define EMU3_FILE_MODE (S_IFREG)
 
 extern struct kmem_cache *emu3_inode_cachep;
 
@@ -71,7 +71,7 @@ static struct emu3_dentry *emu3_find_dentry_by_id(struct super_block *sb,
 	e3d = (struct emu3_dentry *)(*b)->b_data;
 	e3d += offset;
 
-	if (e3d->id)
+	if (EMU3_DENTRY_IS_FILE(e3d) || EMU3_DENTRY_IS_DIR(e3d))
 		return e3d;
 
 	brelse(*b);
@@ -178,7 +178,7 @@ emu3_get_file_geom(struct inode *inode,
 		*bytes = clusters_rem % EMU3_BSIZE;
 }
 
-struct inode *emu3_get_inode(struct super_block *sb, unsigned long id)
+struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 {
 	struct inode *inode;
 	struct emu3_sb_info *info = EMU3_SB(sb);
@@ -193,46 +193,44 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long id)
 	unsigned int links;
 	umode_t mode;
 
-	inode = iget_locked(sb, id);
+	inode = iget_locked(sb, ino);
 
 	if (IS_ERR(inode))
 		return ERR_PTR(-ENOMEM);
+
 	if (!(inode->i_state & I_NEW))
 		return inode;
 
-	if (id == EMU3_ROOT_DIR_I_ID) {
+	if (ino == EMU3_ROOT_DIR_I_ID) {
 		file_block_start = info->start_root_block;
 		file_block_size = info->root_blocks;
 		file_size = info->root_blocks * EMU3_BSIZE;
 		iops = &emu3_inode_operations_dir;
 		fops = &emu3_file_operations_dir;
 		links = 2;
-		mode = EMU3_DIR_PERM;
+		mode = EMU3_DIR_MODE;
 	} else {
-		e3d = emu3_find_dentry_by_id(sb, id, &b);
+		e3d = emu3_find_dentry_by_id(sb, ino, &b);
 
 		if (!e3d)
 			return ERR_PTR(-EIO);
 
-		if (id >= EMU3_I_ID(info->start_root_block, 0)
-		    && id <
-		    EMU3_I_ID((info->start_root_block + info->root_blocks),
-			      0)) {
+		if (EMU3_IS_I_DIR(info, ino)) {
 			//Directory
 			file_block_size = emu3_dir_block_count(e3d);
 			file_size = file_block_size * EMU3_BSIZE;
 			iops = &emu3_inode_operations_dir;
 			fops = &emu3_file_operations_dir;
 			links = 2;
-			mode = EMU3_DIR_PERM;
+			mode = EMU3_DIR_MODE;
 		} else {
 			//File
-			emu3_file_block_count(id, info, e3d, &file_block_start,
+			emu3_file_block_count(ino, info, e3d, &file_block_start,
 					      &file_block_size, &file_size);
 			iops = &emu3_inode_operations_file;
 			fops = &emu3_file_operations_file;
 			links = 1;
-			mode = EMU3_FILE_PERM;
+			mode = EMU3_FILE_MODE;
 
 			e3i = EMU3_I(inode);
 			e3i->start_cluster = e3d->fattrs.start_cluster;
@@ -241,7 +239,7 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long id)
 		brelse(b);
 	}
 
-	inode->i_mode = mode | EMU3_COMMON_PERM;
+	inode->i_mode = mode | EMU3_COMMON_MODE;
 	inode->i_uid = current_fsuid();
 	inode->i_gid = current_fsgid();
 	set_nlink(inode, links);

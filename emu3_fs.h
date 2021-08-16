@@ -64,13 +64,17 @@
 
 #define EMU3_BLOCKS_PER_DIR 7
 
-#define IS_EMU3_FILE(e3d) 		\
-	(((e3d)->fattrs.clusters > 0) &&	\
-	(							\
-	(e3d)->fattrs.type == FTYPE_STD || \
-	(e3d)->fattrs.type == FTYPE_UPD || \
-	(e3d)->fattrs.type == FTYPE_SYS)	\
-	)
+#define EMU3_IS_I_DIR(info, ino) (ino >= EMU3_I_ID(info->start_root_block, 0) && \
+			       ino < EMU3_I_ID((info->start_dir_content_block), 0))
+
+#define EMU3_DENTRY_IS_FILE(e3d) (((e3d)->fattrs.clusters > 0) &&   \
+			  (				     \
+		          (e3d)->fattrs.type == FTYPE_STD || \
+	                  (e3d)->fattrs.type == FTYPE_UPD || \
+	                  (e3d)->fattrs.type == FTYPE_SYS)   \
+	                  )
+
+#define EMU3_DENTRY_IS_DIR(e3d) (((e3d)->id == 0x40) || ((e3d)->id == 0x80))
 
 struct emu3_sb_info {
 	unsigned int blocks;

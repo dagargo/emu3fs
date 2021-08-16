@@ -391,7 +391,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 		e3d = (struct emu3_dentry *)bh->b_data;
 
 		for (j = 0; j < EMU3_ENTRIES_PER_BLOCK; j++) {
-			if (IS_EMU3_FILE(e3d)) {
+			if (EMU3_DENTRY_IS_FILE(e3d)) {
 				if (e3d->fattrs.type != FTYPE_DEL
 				    && e3d->id < EMU3_MAX_REGULAR_FILE)
 					info->id_list[e3d->id] = 1;
