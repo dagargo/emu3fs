@@ -126,14 +126,20 @@ void emu3_evict_inode(struct inode *inode)
 	clear_inode(inode);
 }
 
-unsigned int emu3_dir_block_count(struct emu3_dentry *e3d)
+unsigned int emu3_dir_block_count(struct emu3_dentry *e3d,
+				  struct emu3_sb_info *info)
 {
 	unsigned int i = 0;
-	unsigned short *block = e3d->dattrs.block_list;
+	short v;
+	short *block = e3d->dattrs.block_list;
 
-	while (*block && i < EMU3_BLOCKS_PER_DIR) {
-		block++;
-		i++;
+	emu3_fix_first_dir_block(info, e3d);
+
+	for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++, block++) {
+		v = (short)le16_to_cpu(*block);
+		if (v < (short)info->start_dir_content_block) {
+			return i;
+		}
 	}
 
 	return i;
@@ -217,7 +223,7 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 
 		if (EMU3_IS_I_DIR(info, ino)) {
 			//Directory
-			file_block_size = emu3_dir_block_count(e3d);
+			file_block_size = emu3_dir_block_count(e3d, info);
 			file_size = file_block_size * EMU3_BSIZE;
 			iops = &emu3_inode_operations_dir;
 			fops = &emu3_file_operations_dir;

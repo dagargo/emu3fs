@@ -179,3 +179,5 @@ int emu3_write_inode(struct inode *, struct writeback_control *);
 void emu3_evict_inode(struct inode *);
 
 int emu3_get_free_id(struct emu3_sb_info *);
+
+void emu3_fix_first_dir_block(struct emu3_sb_info *, struct emu3_dentry *);

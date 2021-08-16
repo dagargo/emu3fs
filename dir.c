@@ -81,8 +81,8 @@ static struct emu3_dentry *emu3_find_dentry_by_name_in_blk(struct inode *dir, st
 	return NULL;
 }
 
-static void emu3_fix_first_dir_block(struct emu3_sb_info *info,
-				     struct emu3_dentry *e3d)
+void emu3_fix_first_dir_block(struct emu3_sb_info *info,
+			      struct emu3_dentry *e3d)
 {
 	//This happens occasionally, hopefully only on single dir images, so we try to fix it.
 	if (le16_to_cpu(e3d->dattrs.block_list[0]) <
