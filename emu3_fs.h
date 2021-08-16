@@ -31,7 +31,7 @@
 #define EMU3_FS_TYPE 0x454d5533
 
 #define EMU3_BSIZE 0x200
-#define EMU3_CENTRIES_PER_BLOCK  (EMU3_BSIZE / 2)
+#define EMU3_CLUSTER_ENTRIES_PER_BLOCK  (EMU3_BSIZE >> 1)
 
 //TODO: why can't this be used as a left assignment operator?
 #define EMU3_SB(sb) ((struct emu3_sb_info *)sb->s_fs_info)
@@ -40,41 +40,60 @@
 
 #define EMU3_I_ID_OFFSET_SIZE 4
 #define EMU3_I_ID_OFFSET_MASK ((1 << EMU3_I_ID_OFFSET_SIZE) - 1)
-#define EMU3_I_ID(blknum, offset) ((blknum << EMU3_I_ID_OFFSET_SIZE) | (offset & EMU3_I_ID_OFFSET_MASK))
-#define EMU3_I_ID_GET_BLKNUM(id) (id >> EMU3_I_ID_OFFSET_SIZE)
-#define EMU3_I_ID_GET_OFFSET(id) (id & EMU3_I_ID_OFFSET_MASK)
+#define EMU3_I_ID(blknum, offset) (((blknum) << EMU3_I_ID_OFFSET_SIZE) | ((offset) & EMU3_I_ID_OFFSET_MASK))
+#define EMU3_I_ID_GET_BLKNUM(id) ((id) >> EMU3_I_ID_OFFSET_SIZE)
+#define EMU3_I_ID_GET_OFFSET(id) ((id) & EMU3_I_ID_OFFSET_MASK)
 
 #define EMU3_MAX_REGULAR_FILE 100
 
-#define LAST_CLUSTER_OF_FILE 0x7fff
-
-//100 regular banks + 2 special rom files with fixed ids at 0x6b and 0x6d
-#define EMU3_MAX_FILES 102
-
-#define EMU3_ENTRIES_PER_BLOCK 16
-
-#define EMU3_ROOT_DIR_I_ID 1	//Any value is valid as long as is lower than the first inode ID.
-
-#define LENGTH_FILENAME 16
-
-#define FTYPE_DEL 0x00		//Deleted file
-#define FTYPE_STD 0x81
-#define FTYPE_UPD 0x83		//Used by the first file after a deleted file
-#define FTYPE_SYS 0x80
+#define EMU_LAST_FILE_CLUSTER 0x7fff
 
 #define EMU3_BLOCKS_PER_DIR 7
 
-#define EMU3_IS_I_DIR(info, ino) (ino >= EMU3_I_ID(info->start_root_block, 0) && \
-			       ino < EMU3_I_ID((info->start_dir_content_block), 0))
+#define EMU3_LENGTH_FILENAME 16
 
-#define EMU3_DENTRY_IS_FILE(e3d) (((e3d)->fattrs.clusters > 0) &&   \
-			  (				     \
-		          (e3d)->fattrs.type == FTYPE_STD || \
-	                  (e3d)->fattrs.type == FTYPE_UPD || \
-	                  (e3d)->fattrs.type == FTYPE_SYS)   \
-	                  )
+#define EMU3_ENTRIES_PER_BLOCK (EMU3_BSIZE / (sizeof(struct emu3_dentry)))
 
-#define EMU3_DENTRY_IS_DIR(e3d) (((e3d)->id == 0x40) || ((e3d)->id == 0x80))
+//For devices, this should be 102, 100 regular banks + 2 special rom files with fixed ids at 0x6b and 0x6d.
+//We use the maximum physically allowed.
+#define EMU3_MAX_FILES_PER_DIR (EMU3_ENTRIES_PER_BLOCK * EMU3_BLOCKS_PER_DIR)
+
+#define EMU3_ROOT_DIR_I_ID 1	//Any value is valid as long as is lower than the first inode ID.
+
+#define EMU3_FTYPE_DEL 0x00	//Deleted file
+#define EMU3_FTYPE_STD 0x81
+#define EMU3_FTYPE_UPD 0x83	//Used by the first file after a deleted file
+#define EMU3_FTYPE_SYS 0x80
+
+#define EMU3_DTYPE_1 0x40
+#define EMU3_DTYPE_2 0x80
+
+#define EMU3_IS_I_ROOT_DIR(inode) ((inode)->i_ino == EMU3_ROOT_DIR_I_ID)
+
+#define EMU3_IS_I_REG_DIR(inode) (((inode)->i_ino >= EMU3_I_ID((EMU3_SB((inode)->i_sb))->start_root_block, 0)) && \
+			          ((inode)->i_ino <  EMU3_I_ID((EMU3_SB((inode)->i_sb))->start_dir_content_block, 0)))
+
+#define EMU3_DENTRY_IS_FILE(e3d) (((e3d)->id >= 0) &&               \
+                                  ((e3d)->id < EMU3_MAX_FILES_PER_DIR) && \
+				  ((e3d)->fattrs.clusters > 0) &&          \
+                                   (				           \
+		          	   (e3d)->fattrs.type == EMU3_FTYPE_STD || \
+	                           (e3d)->fattrs.type == EMU3_FTYPE_UPD || \
+	                           (e3d)->fattrs.type == EMU3_FTYPE_SYS    \
+			           )                                       \
+	                         )
+
+#define EMU3_DENTRY_IS_DIR(e3d) (((e3d)->id == EMU3_DTYPE_1 || (e3d)->id == EMU3_DTYPE_2) && \
+                                 (le16_to_cpu((e3d)->dattrs.block_list[0]) > 0))
+
+#define EMU3_COMMON_MODE (S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR)
+#define EMU3_DIR_MODE_ (S_IFDIR | S_IXUSR | S_IXGRP | S_IXOTH)
+#define EMU3_FILE_MODE_ (S_IFREG)
+#define EMU3_ROOT_DIR_MODE (EMU3_COMMON_MODE | EMU3_DIR_MODE_| S_IWGRP | S_IWOTH)
+#define EMU3_DIR_MODE (EMU3_COMMON_MODE | EMU3_DIR_MODE_)
+#define EMU3_FILE_MODE (EMU3_COMMON_MODE | EMU3_FILE_MODE_)
+
+#define EMU3_IS_DIR_BLOCK_FREE(block) ((block) == -1)
 
 struct emu3_sb_info {
 	unsigned int blocks;
@@ -87,8 +106,8 @@ struct emu3_sb_info {
 	unsigned int start_data_block;
 	unsigned int blocks_per_cluster;
 	unsigned int clusters;
-	unsigned int *id_list;
 	unsigned short *cluster_list;
+	bool *dir_content_block_list;
 	struct mutex lock;
 };
 
@@ -102,11 +121,11 @@ struct emu3_file_attrs {
 };
 
 struct emu3_dir_attrs {
-	unsigned short block_list[EMU3_BLOCKS_PER_DIR];
+	short block_list[EMU3_BLOCKS_PER_DIR];
 };
 
 struct emu3_dentry {
-	char name[LENGTH_FILENAME];
+	char name[EMU3_LENGTH_FILENAME];
 	unsigned char unknown;
 	unsigned char id;	//This can be 0. No inode id in linux can be 0.
 	union {
@@ -134,27 +153,28 @@ struct inode *emu3_get_inode(struct super_block *, unsigned long);
 
 inline void get_emu3_fulldentry(char *, struct emu3_dentry *);
 
-int emu3_add_entry(struct inode *, const unsigned char *, int,
-		   unsigned int *, int *);
-
 struct emu3_dentry *emu3_find_empty_dentry(struct super_block *,
 					   struct buffer_head **);
 
 const char *emu3_filename_length(const char *, int *);
 
-inline unsigned int emu3_get_start_block(struct emu3_inode *e3i,
-					 struct emu3_sb_info *info);
+inline unsigned int emu3_get_start_block(struct emu3_inode *,
+					 struct emu3_sb_info *);
 
-void emu3_get_file_geom(struct inode *,
-			unsigned short *, unsigned short *, unsigned short *);
+void emu3_get_file_geom(struct inode *, unsigned short *, unsigned short *,
+			unsigned short *);
 
 void emu3_write_cluster_list(struct super_block *);
+
+void emu3_fix_first_dir_block(struct emu3_sb_info *, struct emu3_dentry *);
 
 void emu3_read_cluster_list(struct super_block *);
 
 int emu3_expand_cluster_list(struct inode *, sector_t);
 
 int emu3_next_free_cluster(struct emu3_sb_info *);
+
+void emu3_fix_first_dir_block(struct emu3_sb_info *, struct emu3_dentry *);
 
 void emu3_init_cluster_list(struct inode *);
 
@@ -178,6 +198,11 @@ int emu3_write_inode(struct inode *, struct writeback_control *);
 
 void emu3_evict_inode(struct inode *);
 
-int emu3_get_free_id(struct emu3_sb_info *);
-
 void emu3_fix_first_dir_block(struct emu3_sb_info *, struct emu3_dentry *);
+
+struct emu3_dentry *emu3_find_dentry_by_inode(struct inode *,
+					      struct buffer_head **);
+
+struct emu3_dentry *emu3_find_dentry_by_ino(unsigned long,
+					    struct super_block *,
+					    struct buffer_head **);
