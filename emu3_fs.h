@@ -86,6 +86,8 @@
 #define EMU3_DENTRY_IS_DIR(e3d) (((e3d)->id == EMU3_DTYPE_1 || (e3d)->id == EMU3_DTYPE_2) && \
                                  (le16_to_cpu((e3d)->dattrs.block_list[0]) > 0))
 
+#define EMU3_DIR_BLOCK_OK(block, info) ((block) >= info->start_dir_content_block && (block) < info->start_data_block)
+
 #define EMU3_COMMON_MODE (S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR)
 #define EMU3_DIR_MODE_ (S_IFDIR | S_IXUSR | S_IXGRP | S_IXOTH)
 #define EMU3_FILE_MODE_ (S_IFREG)

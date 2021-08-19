@@ -58,7 +58,7 @@ struct emu3_dentry *emu3_find_dentry_by_ino(unsigned long ino,
 					    struct super_block *sb,
 					    struct buffer_head **b)
 {
-	sector_t blknum = EMU3_I_ID_GET_BLKNUM(ino);
+	unsigned int blknum = EMU3_I_ID_GET_BLKNUM(ino);
 	unsigned int offset = EMU3_I_ID_GET_OFFSET(ino);
 	struct emu3_dentry *e3d;
 
@@ -86,8 +86,6 @@ int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 
 	if (EMU3_IS_I_ROOT_DIR(inode) || EMU3_IS_I_REG_DIR(inode))
 		return 0;
-
-	return 0;
 
 	mutex_lock(&info->lock);
 
@@ -235,7 +233,7 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 			inode->i_mapping->a_ops = &emu3_aops;
 		} else {
 			printk(KERN_ERR
-			       "%s: entry is neither a file nor a directory\n",
+			       "%s: entry is neither a file nor a directory",
 			       EMU3_MODULE_NAME);
 			brelse(b);
 			return ERR_PTR(-EIO);

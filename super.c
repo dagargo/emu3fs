@@ -248,7 +248,7 @@ int emu3_next_free_cluster(struct emu3_sb_info *info)
 {
 	int i;
 
-	for (i = 1; i <= info->clusters; i++)
+	for (i = 1; i < info->clusters; i++)
 		if (info->cluster_list[i] == 0)
 			return i;
 	return -ENOSPC;
@@ -257,7 +257,7 @@ int emu3_next_free_cluster(struct emu3_sb_info *info)
 sector_t emu3_get_phys_block(struct inode *inode, sector_t block)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
-	int cluster = ((int)block) / info->blocks_per_cluster;	//cluster amount
+	int cluster = ((int)block) / info->blocks_per_cluster;
 	int offset = ((int)block) % info->blocks_per_cluster;
 
 	cluster = emu3_get_cluster(inode, cluster);
@@ -430,7 +430,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 				if (index < 0
 				    || index >= info->dir_content_blocks) {
 					printk(KERN_ERR
-					       "%s: block %d marked as used by dir %.16s\n",
+					       "%s: block %d marked as used by dir %.16s",
 					       EMU3_MODULE_NAME, *block,
 					       e3d->name);
 					continue;
