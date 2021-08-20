@@ -168,15 +168,11 @@ void emu3_get_file_geom(struct inode *, unsigned short *, unsigned short *,
 
 void emu3_write_cluster_list(struct super_block *);
 
-void emu3_fix_first_dir_block(struct emu3_sb_info *, struct emu3_dentry *);
-
 void emu3_read_cluster_list(struct super_block *);
 
 int emu3_expand_cluster_list(struct inode *, sector_t);
 
 int emu3_next_free_cluster(struct emu3_sb_info *);
-
-void emu3_fix_first_dir_block(struct emu3_sb_info *, struct emu3_dentry *);
 
 void emu3_init_cluster_list(struct inode *);
 
@@ -199,8 +195,6 @@ void emu3_destroy_inode(struct inode *);
 int emu3_write_inode(struct inode *, struct writeback_control *);
 
 void emu3_evict_inode(struct inode *);
-
-void emu3_fix_first_dir_block(struct emu3_sb_info *, struct emu3_dentry *);
 
 struct emu3_dentry *emu3_find_dentry_by_inode(struct inode *,
 					      struct buffer_head **);

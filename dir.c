@@ -81,7 +81,7 @@ static struct emu3_dentry *emu3_find_dentry_by_name_in_blk(struct inode *dir, st
 	return NULL;
 }
 
-// void emu3_fix_first_dir_block(struct emu3_sb_info *info,
+// static bool emu3_fix_first_dir_block(struct emu3_sb_info *info,
 //                            struct emu3_dentry *e3d)
 // {
 //      //This happens occasionally, luckily only on single dir images, so we try to fix it.
@@ -213,9 +213,14 @@ static int emu3_iterate_root(struct file *f, struct dir_context *ctx,
 
 	k = 2;
 	for (i = 0; i < dir->i_blocks; i++) {
+
 		blknum = info->start_root_block + i;
 		b = sb_bread(dir->i_sb, blknum);
 		e3d = (struct emu3_dentry *)b->b_data;
+
+		// if (i == 0)
+		//      if (emu3_fix_first_dir_block(info, e3d))
+		//              e3d;    //Mark buffer as dirty
 
 		for (j = 0; j < EMU3_ENTRIES_PER_BLOCK; j++, e3d++) {
 
