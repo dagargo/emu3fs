@@ -57,24 +57,42 @@ static int emu3_get_free_clusters(struct emu3_sb_info *info)
 static int emu3_get_free_inodes(struct super_block *sb)
 {
 	int i, j;
-	int free_ids = 0;
+	int free_inos = 0;
 	struct emu3_dentry *e3d;
 	struct buffer_head *b;
 	struct emu3_sb_info *info = EMU3_SB(sb);
 
-	for (i = 0; i < info->dir_content_blocks; i++) {
-		b = sb_bread(sb, info->start_dir_content_block + i);
+	for (i = 0; i < info->root_blocks + info->dir_content_blocks; i++) {
+		b = sb_bread(sb, info->start_root_block + i);
 		//TODO: add check?
 
 		e3d = (struct emu3_dentry *)b->b_data;
 		for (j = 0; j < EMU3_ENTRIES_PER_BLOCK; j++, e3d++)
-			if (!EMU3_DENTRY_IS_FILE(e3d))
-				free_ids++;
+			if (i < info->root_blocks) {
+				if (!EMU3_DENTRY_IS_DIR(e3d))
+					free_inos++;
+			} else {
+				if (!EMU3_DENTRY_IS_FILE(e3d))
+					free_inos++;
+			}
 
 		brelse(b);
 	}
 
-	return free_ids;
+	return free_inos;
+}
+
+static int emu3_get_free_dir_blocks(struct emu3_sb_info *info)
+{
+	bool *b;
+	int i, free_blks = 0;
+
+	b = info->dir_content_block_list;
+	for (i = 0; i < info->dir_content_blocks; i++, b++)
+		if (!*b)
+			free_blks++;
+
+	return free_blks;
 }
 
 static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
@@ -86,12 +104,15 @@ static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
 	//For the free space and free inodes we do not consider files.
 	buf->f_type = EMU3_FS_TYPE;
 	buf->f_bsize = EMU3_BSIZE;
-	buf->f_blocks = info->clusters * info->blocks_per_cluster;
-	buf->f_bfree = emu3_get_free_clusters(info) * info->blocks_per_cluster;
+	buf->f_blocks = info->root_blocks + info->dir_content_blocks +
+	    info->clusters * info->blocks_per_cluster;
+	buf->f_bfree =
+	    emu3_get_free_clusters(info) * info->blocks_per_cluster +
+	    emu3_get_free_dir_blocks(info);
 	buf->f_bavail = buf->f_bfree;
-	buf->f_files = emu3_get_free_inodes(sb);
-	buf->f_ffree =
-	    EMU3_ENTRIES_PER_BLOCK * info->dir_content_blocks - buf->f_files;
+	buf->f_files = EMU3_ENTRIES_PER_BLOCK * (info->root_blocks +
+						 info->dir_content_blocks);
+	buf->f_ffree = emu3_get_free_inodes(sb);
 	buf->f_fsid.val[0] = (u32) id;
 	buf->f_fsid.val[1] = (u32) (id >> 32);
 	buf->f_namelen = EMU3_LENGTH_FILENAME;
