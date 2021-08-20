@@ -103,6 +103,7 @@ static struct emu3_dentry *emu3_find_dentry_by_name(struct inode *dir,
 {
 	int i;
 	short blknum;
+	struct buffer_head *db;
 	struct emu3_dentry *e3d, *res;
 	struct emu3_sb_info *info = EMU3_SB(dir->i_sb);
 
@@ -123,7 +124,7 @@ static struct emu3_dentry *emu3_find_dentry_by_name(struct inode *dir,
 		return NULL;
 	}
 
-	e3d = emu3_find_dentry_by_inode(dir, b);
+	e3d = emu3_find_dentry_by_inode(dir, &db);
 
 	if (!e3d)
 		return NULL;
@@ -139,12 +140,14 @@ static struct emu3_dentry *emu3_find_dentry_by_name(struct inode *dir,
 		res =
 		    emu3_find_dentry_by_name_in_blk(dir, dentry, b,
 						    blknum, ino);
-		if (res)
+		if (res) {
+			brelse(db);
 			return res;
+		}
 	}
 
  cleanup:
-	brelse(*b);
+	brelse(db);
 	return NULL;
 }
 
