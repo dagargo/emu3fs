@@ -26,32 +26,40 @@ echo "Mounting image..."
 sudo losetup /dev/loop0 image.iso
 sudo mount -t emu3 /dev/loop0 $EMU3_MOUNTPOINT
 
-echo "1234" > $EMU3_MOUNTPOINT/t1
-echo "5678" >> $EMU3_MOUNTPOINT/t1
-[ "12345678" != "$(< $EMU3_MOUNTPOINT/t1)" ]
+mkdir $EMU3_MOUNTPOINT/foo
 test
 
-cp $EMU3_MOUNTPOINT/t1 $EMU3_MOUNTPOINT/t3
+rmdir $EMU3_MOUNTPOINT/foo
 test
 
-mv $EMU3_MOUNTPOINT/t3 $EMU3_MOUNTPOINT/t2
+mkdir $EMU3_MOUNTPOINT/foo
+
+echo "1234" > $EMU3_MOUNTPOINT/foo/t1
+echo "5678" >> $EMU3_MOUNTPOINT/foo/t1
+[ "12345678" != "$(< $EMU3_MOUNTPOINT/foo/t1)" ]
 test
 
-[ "$(< $EMU3_MOUNTPOINT/t1)" == "$(< $EMU3_MOUNTPOINT/t2)" ]
+cp $EMU3_MOUNTPOINT/foo/t1 $EMU3_MOUNTPOINT/foo/t3
 test
 
-> $EMU3_MOUNTPOINT/t1
+mv $EMU3_MOUNTPOINT/foo/t3 $EMU3_MOUNTPOINT/foo/t2
 test
 
-[ 0 -eq $(wc -c $EMU3_MOUNTPOINT/t1 | awk '{print $1}') ]
+[ "$(< $EMU3_MOUNTPOINT/foo/t1)" == "$(< $EMU3_MOUNTPOINT/foo/t2)" ]
+test
+
+> $EMU3_MOUNTPOINT/foo/t1
+test
+
+[ 0 -eq $(wc -c $EMU3_MOUNTPOINT/foo/t1 | awk '{print $1}') ]
 test
 
 head -c 32M </dev/urandom > t3
 
-cp t3 $EMU3_MOUNTPOINT
+cp t3 $EMU3_MOUNTPOINT/foo
 test
 
-cp t3 $EMU3_MOUNTPOINT/t4
+cp t3 $EMU3_MOUNTPOINT/foo/t4
 test
 
 echo "Remounting..."
@@ -60,17 +68,20 @@ test
 sudo mount -t emu3 /dev/loop0 $EMU3_MOUNTPOINT
 test
 
-diff $EMU3_MOUNTPOINT/t3 $EMU3_MOUNTPOINT/t4
+diff $EMU3_MOUNTPOINT/foo/t3 $EMU3_MOUNTPOINT/foo/t4
 test
 
-cp $EMU3_MOUNTPOINT/t3 t3.bak
+cp $EMU3_MOUNTPOINT/foo/t3 t3.bak
 test
 
 diff t3 t3.bak
 test
 rm t3 t3.bak
 
-rm $EMU3_MOUNTPOINT/t*
+rm $EMU3_MOUNTPOINT/foo/t*
+test
+
+rmdir $EMU3_MOUNTPOINT/foo
 test
 
 echo "Cleaning up..."
