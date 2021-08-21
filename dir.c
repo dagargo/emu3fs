@@ -387,6 +387,21 @@ static struct emu3_dentry *emu3_find_empty_file_dentry(struct inode *dir,
 		brelse(*b);
 	}
 
+	if (i < EMU3_BLOCKS_PER_DIR) {
+		for (j = 0; j < info->dir_content_blocks; j++) {
+			if (!info->dir_content_block_list[j]) {
+				info->dir_content_block_list[j] = 1;
+				blknum = info->start_dir_content_block + i;
+				e3d_dir->dattrs.block_list[i] =
+				    cpu_to_le16(blknum);
+				mark_buffer_dirty_inode(db, dir);
+				*b = sb_bread(dir->i_sb, blknum);
+				e3d = (struct emu3_dentry *)(*b)->b_data;
+				goto cleanup;
+			}
+		}
+	}
+
  cleanup:
 	brelse(db);
 	return NULL;
@@ -409,11 +424,6 @@ static int emu3_add_file_dentry(struct inode *dir, const unsigned char *name,
 	if (namelen > EMU3_LENGTH_FILENAME)
 		return -ENAMETOOLONG;
 
-	e3d = emu3_find_empty_file_dentry(dir, &b, ino);
-
-	if (!e3d)
-		return -ENOSPC;
-
 	*start_cluster = emu3_next_free_cluster(info);
 
 	if (*start_cluster < 0) {
@@ -427,6 +437,11 @@ static int emu3_add_file_dentry(struct inode *dir, const unsigned char *name,
 		ret = -ENOSPC;
 		goto cleanup;
 	}
+
+	e3d = emu3_find_empty_file_dentry(dir, &b, ino);
+
+	if (!e3d)
+		return -ENOSPC;
 
 	memcpy(e3d->name, name, namelen);
 	memset(&e3d->name[namelen], ' ', EMU3_LENGTH_FILENAME - namelen);
@@ -651,6 +666,8 @@ emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
 	struct buffer_head *bh;
 	struct emu3_dentry *e3d;
 	int namelen = new_dentry->d_name.len;
+
+	return 0;
 
 	if (flags & ~RENAME_NOREPLACE)
 		return -EINVAL;
