@@ -173,15 +173,16 @@ static int emu3_iterate_dir(struct file *f, struct dir_context *ctx,
 	struct buffer_head *b;
 	struct buffer_head *db;
 	struct emu3_dentry *e3d;
+	struct emu3_dentry *e3d_dir;
 
 	k = 2;
-	e3d = emu3_find_dentry_by_inode(dir, &db);
+	e3d_dir = emu3_find_dentry_by_inode(dir, &db);
 
-	if (!EMU3_DENTRY_IS_DIR(e3d))
+	if (!EMU3_DENTRY_IS_DIR(e3d_dir))
 		goto cleanup;
 
 	for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++) {
-		blknum = le16_to_cpu(e3d->dattrs.block_list[i]);
+		blknum = le16_to_cpu(e3d_dir->dattrs.block_list[i]);
 		if (blknum < 0)
 			break;
 
