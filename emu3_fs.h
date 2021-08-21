@@ -158,8 +158,6 @@ inline void get_emu3_fulldentry(char *, struct emu3_dentry *);
 struct emu3_dentry *emu3_find_empty_dentry(struct super_block *,
 					   struct buffer_head **);
 
-const char *emu3_filename_length(const char *, int *);
-
 inline unsigned int emu3_get_start_block(struct emu3_inode *,
 					 struct emu3_sb_info *);
 
