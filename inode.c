@@ -213,14 +213,7 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 		if (!e3d)
 			return ERR_PTR(-EIO);
 
-		if (EMU3_DENTRY_IS_DIR(e3d)) {
-			file_block_size = emu3_dir_block_count(e3d, info);
-			file_size = file_block_size * EMU3_BSIZE;
-			iops = &emu3_inode_operations_dir;
-			fops = &emu3_file_operations_dir;
-			links = 2;
-			mode = EMU3_DIR_MODE;
-		} else if (EMU3_DENTRY_IS_FILE(e3d)) {
+		if (EMU3_DENTRY_IS_FILE(e3d)) {
 			emu3_file_block_count(ino, info, e3d, &file_block_start,
 					      &file_block_size, &file_size);
 			iops = &emu3_inode_operations_file;
@@ -231,6 +224,13 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 			e3i = EMU3_I(inode);
 			e3i->start_cluster = e3d->fattrs.start_cluster;
 			inode->i_mapping->a_ops = &emu3_aops;
+		} else if (EMU3_DENTRY_IS_DIR(e3d)) {
+			file_block_size = emu3_dir_block_count(e3d, info);
+			file_size = file_block_size * EMU3_BSIZE;
+			iops = &emu3_inode_operations_dir;
+			fops = &emu3_file_operations_dir;
+			links = 2;
+			mode = EMU3_DIR_MODE;
 		} else {
 			printk(KERN_ERR
 			       "%s: entry is neither a file nor a directory\n",
