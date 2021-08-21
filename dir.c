@@ -395,6 +395,7 @@ static struct emu3_dentry *emu3_find_empty_file_dentry(struct inode *dir,
 			e3d_dir->dattrs.block_list[i] = cpu_to_le16(blknum);
 			mark_buffer_dirty_inode(db, dir);
 			*b = sb_bread(dir->i_sb, blknum);
+			*ino = EMU3_I_ID(blknum, j);
 			e3d = (struct emu3_dentry *)(*b)->b_data;
 			brelse(db);
 			return e3d;
