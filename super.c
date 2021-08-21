@@ -414,6 +414,9 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 
 		e3d = (struct emu3_dentry *)b->b_data;
 
+		// if (i == 0)
+		//      emu3_fix_first_dir_block(info, e3d);
+
 		for (j = 0; j < EMU3_ENTRIES_PER_BLOCK; j++, e3d++) {
 			if (!EMU3_DENTRY_IS_DIR(e3d))
 				continue;
