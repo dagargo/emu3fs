@@ -217,7 +217,6 @@ static int emu3_iterate_root(struct file *f, struct dir_context *ctx,
 
 	k = 2;
 	for (i = 0; i < info->root_blocks; i++) {
-
 		blknum = info->start_root_block + i;
 		b = sb_bread(dir->i_sb, blknum);
 		e3d = (struct emu3_dentry *)b->b_data;
@@ -226,7 +225,6 @@ static int emu3_iterate_root(struct file *f, struct dir_context *ctx,
 		//      emu3_fix_first_dir_block(info, e3d);
 
 		for (j = 0; j < EMU3_ENTRIES_PER_BLOCK; j++, e3d++) {
-
 			if (!EMU3_DENTRY_IS_DIR(e3d))
 				continue;
 
@@ -237,7 +235,6 @@ static int emu3_iterate_root(struct file *f, struct dir_context *ctx,
 				}
 			}
 			k++;
-
 		}
 		brelse(b);
 	}

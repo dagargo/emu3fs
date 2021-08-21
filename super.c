@@ -320,7 +320,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 
 	if (sb_set_blocksize(sb, EMU3_BSIZE) != EMU3_BSIZE) {
 		printk(KERN_ERR
-		       "%s: 512B block size not allowed on this device",
+		       "%s: 512B block size not allowed on this device\n",
 		       EMU3_MODULE_NAME);
 		return -EINVAL;
 	}
@@ -342,7 +342,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 
 	//Check EMU3 string
 	if (strncmp(EMU3_FS_SIGNATURE, e3sb, 4) != 0) {
-		printk(KERN_ERR "%s: volume is not an EMU3 disk",
+		printk(KERN_ERR "%s: volume is not an EMU3 disk\n",
 		       EMU3_MODULE_NAME);
 		err = -EINVAL;
 		goto out2;
@@ -372,18 +372,18 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 
 	emu3_read_cluster_list(sb);
 
-	printk(KERN_INFO "%s: %d blocks, %d clusters, %d blocks/cluster",
+	printk(KERN_INFO "%s: %d blocks, %d clusters, %d blocks/cluster\n",
 	       EMU3_MODULE_NAME, info->blocks, info->clusters,
 	       info->blocks_per_cluster);
-	printk(KERN_INFO "%s: cluster list start block @ %d + %d blocks",
+	printk(KERN_INFO "%s: cluster list start block @ %d + %d blocks\n",
 	       EMU3_MODULE_NAME, info->start_cluster_list_block,
 	       info->cluster_list_blocks);
-	printk(KERN_INFO "%s: root start block @ %d + %d blocks",
+	printk(KERN_INFO "%s: root start block @ %d + %d blocks\n",
 	       EMU3_MODULE_NAME, info->start_root_block, info->root_blocks);
-	printk(KERN_INFO "%s: dir content start block @ %d + %d blocks",
+	printk(KERN_INFO "%s: dir content start block @ %d + %d blocks\n",
 	       EMU3_MODULE_NAME, info->start_dir_content_block,
 	       info->dir_content_blocks);
-	printk(KERN_INFO "%s: data start block @ %d + %d clusters",
+	printk(KERN_INFO "%s: data start block @ %d + %d clusters\n",
 	       EMU3_MODULE_NAME, info->start_data_block, info->clusters);
 
 	size = sizeof(bool) * info->dir_content_blocks;
@@ -433,7 +433,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 				if (index < 0
 				    || index >= info->dir_content_blocks) {
 					printk(KERN_ERR
-					       "%s: block %d marked as used by dir %.16s",
+					       "%s: block %d marked as used by dir %.16s\n",
 					       EMU3_MODULE_NAME, *block,
 					       e3d->name);
 					continue;
@@ -482,7 +482,7 @@ static int __init emu3_init(void)
 {
 	int err;
 
-	printk(KERN_INFO "%s: init", EMU3_MODULE_NAME);
+	printk(KERN_INFO "%s: init\n", EMU3_MODULE_NAME);
 	err = init_inodecache();
 	if (err)
 		return err;
@@ -496,7 +496,7 @@ static void __exit emu3_exit(void)
 {
 	unregister_filesystem(&emu3_fs_type);
 	destroy_inodecache();
-	printk(KERN_INFO "%s: exit", EMU3_MODULE_NAME);
+	printk(KERN_INFO "%s: exit\n", EMU3_MODULE_NAME);
 }
 
 module_init(emu3_init);

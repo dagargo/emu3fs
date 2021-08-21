@@ -146,7 +146,7 @@ unsigned int emu3_file_block_count(unsigned long id, struct emu3_sb_info *sb,
 	unsigned int blocks = cpu_to_le16(e3d->fattrs.blocks);
 
 	if (blocks > sb->blocks_per_cluster) {
-		printk(KERN_ERR "%s: wrong EOF in file with id 0x%016lx",
+		printk(KERN_ERR "%s: wrong EOF in file with id 0x%016lx\n",
 		       EMU3_MODULE_NAME, id);
 		return -1;
 	}
@@ -233,7 +233,7 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 			inode->i_mapping->a_ops = &emu3_aops;
 		} else {
 			printk(KERN_ERR
-			       "%s: entry is neither a file nor a directory",
+			       "%s: entry is neither a file nor a directory\n",
 			       EMU3_MODULE_NAME);
 			brelse(b);
 			return ERR_PTR(-EIO);
