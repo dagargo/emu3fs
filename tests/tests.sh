@@ -84,6 +84,17 @@ test
 rmdir $EMU3_MOUNTPOINT/foo
 test
 
+# Testing dir expansion
+
+mkdir $EMU3_MOUNTPOINT/expansion
+
+for i in $(seq 1 16); do touch $EMU3_MOUNTPOINT/expansion/f-$i; done
+touch $EMU3_MOUNTPOINT/expansion/f-17
+test
+
+rm -rf $EMU3_MOUNTPOINT/expansion
+test
+
 echo "Cleaning up..."
 sudo umount $EMU3_MOUNTPOINT
 sudo losetup -d /dev/loop0
