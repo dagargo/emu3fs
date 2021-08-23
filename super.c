@@ -21,7 +21,6 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
-
 #include "emu3_fs.h"
 
 struct kmem_cache *emu3_inode_cachep;
@@ -306,7 +305,8 @@ void emu3_read_cluster_list(struct super_block *sb)
 	}
 }
 
-static int emu3_fill_super(struct super_block *sb, void *data, int silent)
+static int emu3_fill_super(struct super_block *sb, void *data, int silent,
+			   bool emu4)
 {
 	struct emu3_sb_info *info;
 	struct buffer_head *sbh;
@@ -317,6 +317,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 	short *block;
 	struct emu3_dentry *e3d;
 	unsigned int *parameters;
+	unsigned int root_ino;
 
 	if (sb_set_blocksize(sb, EMU3_BSIZE) != EMU3_BSIZE) {
 		printk(KERN_ERR
@@ -396,7 +397,11 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 
 	sb->s_op = &emu3_super_operations;
 
-	inode = emu3_get_inode(sb, EMU3_ROOT_DIR_I_ID);
+	if (emu4)
+		root_ino = 1;
+	else
+		root_ino = EMU3_I_ID(info->start_root_block, 0);
+	inode = emu3_get_inode(sb, root_ino);
 	if (!inode) {
 		err = -EIO;
 		goto out4;
@@ -464,16 +469,40 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent)
 	return err;
 }
 
-static struct dentry *emu3_fs_mount(struct file_system_type *fs_type,
-				    int flags, const char *dev_name, void *data)
+static int emu3_fill_super_v3(struct super_block *sb, void *data, int silent)
 {
-	return mount_bdev(fs_type, flags, dev_name, data, emu3_fill_super);
+	return emu3_fill_super(sb, data, silent, 0);
 }
 
-static struct file_system_type emu3_fs_type = {
+static int emu3_fill_super_v4(struct super_block *sb, void *data, int silent)
+{
+	return emu3_fill_super(sb, data, silent, 1);
+}
+
+static struct dentry *emu3_mount_v3(struct file_system_type *fs_type,
+				    int flags, const char *dev_name, void *data)
+{
+	return mount_bdev(fs_type, flags, dev_name, data, emu3_fill_super_v3);
+}
+
+static struct dentry *emu3_mount_v4(struct file_system_type *fs_type,
+				    int flags, const char *dev_name, void *data)
+{
+	return mount_bdev(fs_type, flags, dev_name, data, emu3_fill_super_v4);
+}
+
+static struct file_system_type emu3_fs_type_v3 = {
 	.owner = THIS_MODULE,
 	.name = "emu3",
-	.mount = emu3_fs_mount,
+	.mount = emu3_mount_v3,
+	.kill_sb = kill_block_super,
+	.fs_flags = FS_REQUIRES_DEV,
+};
+
+static struct file_system_type emu3_fs_type_v4 = {
+	.owner = THIS_MODULE,
+	.name = "emu4",
+	.mount = emu3_mount_v4,
 	.kill_sb = kill_block_super,
 	.fs_flags = FS_REQUIRES_DEV,
 };
@@ -486,7 +515,8 @@ static int __init emu3_init(void)
 	err = init_inodecache();
 	if (err)
 		return err;
-	err = register_filesystem(&emu3_fs_type);
+	err = register_filesystem(&emu3_fs_type_v3)
+	    || register_filesystem(&emu3_fs_type_v4);
 	if (err)
 		destroy_inodecache();
 	return err;
@@ -494,7 +524,8 @@ static int __init emu3_init(void)
 
 static void __exit emu3_exit(void)
 {
-	unregister_filesystem(&emu3_fs_type);
+	unregister_filesystem(&emu3_fs_type_v3);
+	unregister_filesystem(&emu3_fs_type_v4);
 	destroy_inodecache();
 	printk(KERN_INFO "%s: exit\n", EMU3_MODULE_NAME);
 }

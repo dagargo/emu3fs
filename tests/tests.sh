@@ -27,7 +27,7 @@ unxz image.iso.xz
 
 echo "Mounting image..."
 sudo losetup /dev/loop0 image.iso
-sudo mount -t emu3 /dev/loop0 $EMU3_MOUNTPOINT
+sudo mount -t emu4 /dev/loop0 $EMU3_MOUNTPOINT
 
 mkdir $EMU3_MOUNTPOINT/foo
 test
@@ -73,7 +73,7 @@ test foo/t2
 echo "Remounting..."
 sudo umount $EMU3_MOUNTPOINT
 test
-sudo mount -t emu3 /dev/loop0 $EMU3_MOUNTPOINT
+sudo mount -t emu4 /dev/loop0 $EMU3_MOUNTPOINT
 test
 
 diff $EMU3_MOUNTPOINT/foo/t3 $EMU3_MOUNTPOINT/foo/t4
