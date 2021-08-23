@@ -39,7 +39,11 @@ mkdir $EMU3_MOUNTPOINT/foo
 test
 
 echo "1234" > $EMU3_MOUNTPOINT/foo/t1
+test
+[ $EMU3_TEST_DEBUG -eq 1 ] && cat $EMU3_MOUNTPOINT/foo/t1
 echo "5678" >> $EMU3_MOUNTPOINT/foo/t1
+test
+[ $EMU3_TEST_DEBUG -eq 1 ] && cat $EMU3_MOUNTPOINT/foo/t1
 [ "12345678" != "$(< $EMU3_MOUNTPOINT/foo/t1)" ]
 test foo/t1
 
