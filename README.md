@@ -1,6 +1,6 @@
 # emu3fs
 
-emu3fs is a Linux kernel module that allows to read from and write to disks formatted as E-Mu EIII filesystem. The samplers using this filesystem are the emulator 3, emulator 3x, the ESI series (which belong to the EIII series) and the EIV series.
+emu3fs is a Linux kernel module that allows to read from and write to disks formatted as E-Mu EIII filesystem. The samplers using this filesystem are the emulator 3, emulator 3x, the ESI series (which belongs to the EIII series) and the EIV series.
 Currently, it has been tested to work with CDs, Zip drives and SD cards up to 2 GB.
 It's distributed under the terms of the GPL v3.
 
