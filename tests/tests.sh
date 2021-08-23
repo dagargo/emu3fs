@@ -24,9 +24,17 @@ sudo modprobe emu3_fs
 echo "Uncompressing image..."
 cp image.iso.xz.bak image.iso.xz
 unxz image.iso.xz
-
-echo "Mounting image..."
 sudo losetup /dev/loop0 image.iso
+
+echo "Mounting image as emu3..."
+sudo mount -t emu3 /dev/loop0 $EMU3_MOUNTPOINT
+
+sudo mkdir $EMU3_MOUNTPOINT
+[ $? -eq 1 ]
+test
+
+echo "Mounting image as emu4..."
+sudo umount $EMU3_MOUNTPOINT
 sudo mount -t emu4 /dev/loop0 $EMU3_MOUNTPOINT
 
 mkdir $EMU3_MOUNTPOINT/foo
