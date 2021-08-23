@@ -25,6 +25,33 @@
 
 struct kmem_cache *emu3_inode_cachep;
 
+//This happens occasionally, luckily only on single dir images, so we try to fix it.
+//In some cases, all the used blocks are bad. See E-mu Classic Series V5.
+bool emu3_fix_first_dir_blocks(struct emu3_dentry *e3d,
+			       struct emu3_sb_info *info)
+{
+	int i;
+	short fixed;
+	short *blknum = e3d->dattrs.block_list;
+	bool ret = EMU3_DIR_BLOCK_OK(le16_to_cpu(*blknum), info);
+
+	if (ret)
+		return 0;
+
+	printk(KERN_WARNING "%s: Bad first dir blocks\n", EMU3_MODULE_NAME);
+
+	blknum = e3d->dattrs.block_list;
+	for (i = 0; i < EMU3_BLOCKS_PER_DIR && (short)le16_to_cpu(*blknum) > -1;
+	     i++, blknum++) {
+		fixed = cpu_to_le16(info->start_dir_content_block + i);
+		printk(KERN_WARNING "%s: 0x%04x -> 0x%04x", EMU3_MODULE_NAME,
+		       *blknum, fixed);
+		*blknum = fixed;
+	}
+
+	return 1;
+}
+
 static int init_inodecache(void)
 {
 	emu3_inode_cachep = kmem_cache_create("emu3_inode_cache",
@@ -419,8 +446,8 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent,
 
 		e3d = (struct emu3_dentry *)b->b_data;
 
-		// if (i == 0)
-		//      emu3_fix_first_dir_block(info, e3d);
+		if (i == 0 && emu3_fix_first_dir_blocks(e3d, info))
+			mark_buffer_dirty_inode(b, inode);
 
 		for (j = 0; j < EMU3_ENTRIES_PER_BLOCK; j++, e3d++) {
 			if (!EMU3_DENTRY_IS_DIR(e3d))

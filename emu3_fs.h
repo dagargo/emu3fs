@@ -200,5 +200,3 @@ struct emu3_dentry *emu3_find_dentry_by_inode(struct inode *,
 struct emu3_dentry *emu3_find_dentry_by_ino(unsigned long,
 					    struct super_block *,
 					    struct buffer_head **);
-
-bool emu3_fix_first_dir_block(struct emu3_sb_info *, struct emu3_dentry *);
