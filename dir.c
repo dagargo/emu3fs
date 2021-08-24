@@ -20,7 +20,13 @@
 
 #include "emu3_fs.h"
 
-void emu3_filename_fix(char *in, char *out)
+static void emu3_set_dentry_name(struct emu3_dentry *e3d, struct qstr *q)
+{
+	memcpy(e3d->name, q->name, q->len);
+	memset(&e3d->name[q->len], ' ', EMU3_LENGTH_FILENAME - q->len);
+}
+
+static void emu3_filename_fix(char *in, char *out)
 {
 	int i;
 	char c;
@@ -450,9 +456,7 @@ static int emu3_add_file_dentry(struct inode *dir, struct dentry *dentry,
 		goto cleanup;
 	}
 
-	memcpy(e3d->name, dentry->d_name.name, dentry->d_name.len);
-	memset(&e3d->name[dentry->d_name.len], ' ',
-	       EMU3_LENGTH_FILENAME - dentry->d_name.len);
+	emu3_set_dentry_name(e3d, &dentry->d_name);
 	e3d->unknown = 0;
 	e3d->id = id;
 	e3d->fattrs.start_cluster = le16_to_cpu(*start_cluster);
@@ -595,8 +599,8 @@ static struct emu3_dentry *emu3_find_empty_dir_dentry(struct super_block *sb,
 	return NULL;
 }
 
-static int emu3_add_dir_dentry(struct inode *dir, const unsigned char *name,
-			       int namelen, unsigned long *ino)
+static int emu3_add_dir_dentry(struct inode *dir, struct qstr *q,
+			       unsigned long *ino)
 {
 	int i;
 	struct buffer_head *b;
@@ -604,10 +608,10 @@ static int emu3_add_dir_dentry(struct inode *dir, const unsigned char *name,
 	struct emu3_sb_info *info = EMU3_SB(dir->i_sb);
 	struct super_block *sb = dir->i_sb;
 
-	if (!namelen)
+	if (!q->len)
 		return -ENOENT;
 
-	if (namelen > EMU3_LENGTH_FILENAME)
+	if (q->len > EMU3_LENGTH_FILENAME)
 		return -ENAMETOOLONG;
 
 	e3d = emu3_find_empty_dir_dentry(sb, &b, ino);
@@ -626,8 +630,7 @@ static int emu3_add_dir_dentry(struct inode *dir, const unsigned char *name,
 
 	info->dir_content_block_list[i] = 1;
 
-	memcpy(e3d->name, name, namelen);
-	memset(&e3d->name[namelen], ' ', EMU3_LENGTH_FILENAME - namelen);
+	emu3_set_dentry_name(e3d, q);
 	e3d->unknown = 0;
 	e3d->id = EMU3_DTYPE_1;
 	e3d->dattrs.block_list[0] =
@@ -682,7 +685,6 @@ static int emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
 	struct emu3_sb_info *info = EMU3_SB(sb);
 	struct buffer_head *bh;
 	struct emu3_dentry *e3d;
-	int namelen = new_dentry->d_name.len;
 
 	return 0;
 
@@ -700,8 +702,7 @@ static int emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
 		return -ENOENT;
 	}
 
-	memcpy(e3d->name, new_dentry->d_name.name, namelen);
-	memset(&e3d->name[namelen], ' ', EMU3_LENGTH_FILENAME - namelen);
+	emu3_set_dentry_name(e3d, &new_dentry->d_name);
 
 	old_dir->i_ctime = old_dir->i_mtime = current_time(old_dir);
 	mark_inode_dirty(old_dir);
@@ -730,9 +731,7 @@ static int emu3_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 
 	mutex_lock(&info->lock);
 
-	err =
-	    emu3_add_dir_dentry(dir, dentry->d_name.name, dentry->d_name.len,
-				&ino);
+	err = emu3_add_dir_dentry(dir, &dentry->d_name, &ino);
 
 	if (err) {
 		mutex_unlock(&info->lock);
