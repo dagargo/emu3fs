@@ -33,10 +33,9 @@
 #define EMU3_BSIZE 0x200
 #define EMU3_CLUSTER_ENTRIES_PER_BLOCK  (EMU3_BSIZE >> 1)
 
-//TODO: why can't this be used as a left assignment operator?
-#define EMU3_SB(sb) ((struct emu3_sb_info *)sb->s_fs_info)
+#define EMU3_SB(sb) ((struct emu3_sb_info *)(sb)->s_fs_info)
 
-#define EMU3_I(inode) ((struct emu3_inode *)container_of(inode, struct emu3_inode, vfs_inode))
+#define EMU3_I(inode) ((struct emu3_inode *)container_of((inode), struct emu3_inode, vfs_inode))
 
 #define EMU3_I_ID_OFFSET_SIZE 4
 #define EMU3_I_ID_OFFSET_MASK ((1 << EMU3_I_ID_OFFSET_SIZE) - 1)
