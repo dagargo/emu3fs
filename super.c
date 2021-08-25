@@ -27,26 +27,26 @@ struct kmem_cache *emu3_inode_cachep;
 
 //This happens occasionally, luckily only on single dir images, so we try to fix it.
 //In some cases, all the used blocks are bad. See E-mu Classic Series V5.
-bool emu3_fix_first_dir_blocks(struct emu3_dentry *e3d,
-			       struct emu3_sb_info *info)
+static bool emu3_fix_first_dir_blocks(struct emu3_dentry *e3d,
+				      struct emu3_sb_info *info)
 {
 	int i;
-	short fixed;
-	short *blknum = e3d->dattrs.block_list;
-	bool ret = EMU3_DIR_BLOCK_OK(le16_to_cpu(*blknum), info);
-
-	if (ret)
-		return 0;
-
-	printk(KERN_WARNING "%s: Bad first dir blocks\n", EMU3_MODULE_NAME);
+	short new;
+	short old;
+	short *blknum;
 
 	blknum = e3d->dattrs.block_list;
-	for (i = 0; i < EMU3_BLOCKS_PER_DIR && (short)le16_to_cpu(*blknum) > -1;
-	     i++, blknum++) {
-		fixed = cpu_to_le16(info->start_dir_content_block + i);
-		printk(KERN_WARNING "%s: 0x%04x -> 0x%04x", EMU3_MODULE_NAME,
-		       *blknum, fixed);
-		*blknum = fixed;
+	for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++, blknum++) {
+		old = le16_to_cpu(*blknum);
+		if (EMU3_IS_DIR_BLOCK_FREE(old))
+			break;
+		new = info->start_dir_content_block + i;
+		if (new != old) {
+			printk(KERN_WARNING
+			       "%s: Directory block changed from 0x%04x to 0x%04x",
+			       EMU3_MODULE_NAME, old, new);
+			*blknum = cpu_to_le16(new);
+		}
 	}
 
 	return 1;
