@@ -45,7 +45,7 @@
 
 #define EMU3_MAX_REGULAR_FILE 100
 
-#define EMU_LAST_FILE_CLUSTER 0x7fff
+#define EMU_LAST_FILE_CLUSTER ((short)0x7fff)
 
 #define EMU3_BLOCKS_PER_DIR 7
 
@@ -94,7 +94,8 @@
 #define EMU3_DIR_MODE (EMU3_COMMON_MODE | EMU3_DIR_MODE_)
 #define EMU3_FILE_MODE (EMU3_COMMON_MODE | EMU3_FILE_MODE_)
 
-#define EMU3_IS_DIR_BLOCK_FREE(block) ((block) == -1)
+#define EMU3_FREE_DIR_BLOCK (-1)
+#define EMU3_IS_DIR_BLOCK_FREE(block) ((block) == EMU3_FREE_DIR_BLOCK)
 
 struct emu3_sb_info {
 	unsigned int blocks;
@@ -136,8 +137,8 @@ struct emu3_dentry {
 };
 
 struct emu3_inode {
-	unsigned int start_cluster;
 	struct inode vfs_inode;
+	short start_cluster;
 };
 
 extern const struct file_operations emu3_file_operations_dir;
