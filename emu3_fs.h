@@ -185,14 +185,6 @@ sector_t emu3_get_phys_block(struct inode *, sector_t);
 
 void emu3_init_once(void *);
 
-struct inode *emu3_alloc_inode(struct super_block *);
-
-void emu3_destroy_inode(struct inode *);
-
-int emu3_write_inode(struct inode *, struct writeback_control *);
-
-void emu3_evict_inode(struct inode *);
-
 struct emu3_dentry *emu3_find_dentry_by_inode(struct inode *,
 					      struct buffer_head **);
 

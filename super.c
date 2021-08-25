@@ -23,7 +23,76 @@
 #include <linux/init.h>
 #include "emu3_fs.h"
 
-struct kmem_cache *emu3_inode_cachep;
+static struct kmem_cache *emu3_inode_cachep;
+
+static struct inode *emu3_alloc_inode(struct super_block *sb)
+{
+	struct emu3_inode *e3i;
+
+	e3i = kmem_cache_alloc(emu3_inode_cachep, GFP_KERNEL);
+	if (!e3i)
+		return NULL;
+	return &e3i->vfs_inode;
+}
+
+static void emu3_i_callback(struct rcu_head *head)
+{
+	struct inode *inode = container_of(head, struct inode, i_rcu);
+
+	kmem_cache_free(emu3_inode_cachep, EMU3_I(inode));
+}
+
+static void emu3_destroy_inode(struct inode *inode)
+{
+	call_rcu(&inode->i_rcu, emu3_i_callback);
+}
+
+static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
+{
+	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
+	struct emu3_dentry *e3d;
+	struct emu3_inode *e3i;
+	struct buffer_head *bh;
+	int err = 0;
+
+	if (EMU3_IS_I_ROOT_DIR(inode) || EMU3_IS_I_REG_DIR(inode))
+		return 0;
+
+	mutex_lock(&info->lock);
+
+	e3d = emu3_find_dentry_by_inode(inode, &bh);
+	if (!e3d) {
+		mutex_unlock(&info->lock);
+		return PTR_ERR(e3d);
+	}
+
+	emu3_update_cluster_list(inode);
+
+	emu3_get_file_geom(inode, &e3d->fattrs.clusters, &e3d->fattrs.blocks,
+			   &e3d->fattrs.bytes);
+
+	e3i = EMU3_I(inode);
+	e3d->fattrs.start_cluster = e3i->start_cluster;
+
+	mark_buffer_dirty(bh);
+	if (wbc->sync_mode == WB_SYNC_ALL) {
+		sync_dirty_buffer(bh);
+		if (buffer_req(bh) && !buffer_uptodate(bh))
+			err = -EIO;
+	}
+	brelse(bh);
+
+	mutex_unlock(&info->lock);
+
+	return err;
+}
+
+static void emu3_evict_inode(struct inode *inode)
+{
+	truncate_inode_pages(&inode->i_data, 0);
+	invalidate_inode_buffers(inode);
+	clear_inode(inode);
+}
 
 //This happens occasionally, luckily only on single dir images, so we try to fix it.
 //In some cases, all the used blocks are bad. See E-mu Classic Series V5.
