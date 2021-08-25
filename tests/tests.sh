@@ -7,11 +7,27 @@ if [ "$EMU3_MOUNTPOINT" == "" ]; then
   exit -1
 fi
 
-function test() {
-  [ $? -eq 0 ] && ok=$((ok+1))
+function logAndRun() {
+        echo ">>> Running '$*'..."
+        $*
+}
+
+function testCommon() {
+  [ $1 -eq 1 ] && ok=$((ok+1))
   total=$((total+1))
-  [ $EMU3_TEST_DEBUG -eq 1 ] && [ -n "$1" ] && ls -lai $EMU3_MOUNTPOINT/$1
+  [ $EMU3_TEST_DEBUG -eq 1 ] && [ -n "$2" ] && echo "Listing '$EMU3_MOUNTPOINT/$2'..." && ls -lai $EMU3_MOUNTPOINT/$2
   echo "Results: $ok/$total"
+  echo
+}
+
+function test() {
+  [ $? -eq 0 ] && this=1 || this=0
+  testCommon $this $1
+}
+
+function testError() {
+  [ $? -ne 0 ] && this=1 || this=0
+  testCommon $this $1
 }
 
 total=0
@@ -23,31 +39,32 @@ sudo modprobe emu3_fs
 
 echo "Uncompressing image..."
 cp image.iso.xz.bak image.iso.xz
+sudo rm -f image.iso
 unxz image.iso.xz
 sudo losetup /dev/loop0 image.iso
 
 echo "Mounting image as emu3..."
 sudo mount -t emu3 /dev/loop0 $EMU3_MOUNTPOINT
-
-sudo mkdir $EMU3_MOUNTPOINT
-[ $? -eq 1 ]
-test
+sudo umount $EMU3_MOUNTPOINT
 
 echo "Mounting image as emu4..."
-sudo umount $EMU3_MOUNTPOINT
 sudo mount -t emu4 /dev/loop0 $EMU3_MOUNTPOINT
 
-mkdir $EMU3_MOUNTPOINT/foo
+logAndRun mkdir $EMU3_MOUNTPOINT/foo
 test
 
-rmdir $EMU3_MOUNTPOINT/foo
+logAndRun mkdir $EMU3_MOUNTPOINT/foo
+testError
+
+logAndRun rmdir $EMU3_MOUNTPOINT/foo
 test
 
-mkdir $EMU3_MOUNTPOINT/foo
+logAndRun mkdir $EMU3_MOUNTPOINT/foo
 test
 
 echo "1234" > $EMU3_MOUNTPOINT/foo/t1
 test
+
 [ $EMU3_TEST_DEBUG -eq 1 ] && cat $EMU3_MOUNTPOINT/foo/t1
 echo "5678" >> $EMU3_MOUNTPOINT/foo/t1
 test
@@ -55,10 +72,10 @@ test
 [ "12345678" != "$(< $EMU3_MOUNTPOINT/foo/t1)" ]
 test foo/t1
 
-cp $EMU3_MOUNTPOINT/foo/t1 $EMU3_MOUNTPOINT/foo/t3
+logAndRun cp $EMU3_MOUNTPOINT/foo/t1 $EMU3_MOUNTPOINT/foo/t3
 test foo/t3
 
-mv $EMU3_MOUNTPOINT/foo/t3 $EMU3_MOUNTPOINT/foo/t2
+logAndRun mv $EMU3_MOUNTPOINT/foo/t3 $EMU3_MOUNTPOINT/foo/t2
 test foo/t2
 
 [ "$(< $EMU3_MOUNTPOINT/foo/t1)" == "$(< $EMU3_MOUNTPOINT/foo/t2)" ]
@@ -72,50 +89,78 @@ test
 
 head -c 32M </dev/urandom > t3
 
-cp t3 $EMU3_MOUNTPOINT/foo
+logAndRun cp t3 $EMU3_MOUNTPOINT/foo
 test foo/t2
 
-cp t3 $EMU3_MOUNTPOINT/foo/t4
+logAndRun cp t3 $EMU3_MOUNTPOINT/foo/t4
 test foo/t2
 
 echo "Remounting..."
-sudo umount $EMU3_MOUNTPOINT
+logAndRun sudo umount $EMU3_MOUNTPOINT
 test
-sudo mount -t emu4 /dev/loop0 $EMU3_MOUNTPOINT
-test
-
-diff $EMU3_MOUNTPOINT/foo/t3 $EMU3_MOUNTPOINT/foo/t4
+logAndRun sudo mount -t emu4 /dev/loop0 $EMU3_MOUNTPOINT
 test
 
-cp $EMU3_MOUNTPOINT/foo/t3 t3.bak
+logAndRun diff $EMU3_MOUNTPOINT/foo/t3 $EMU3_MOUNTPOINT/foo/t4
 test
 
-diff t3 t3.bak
+logAndRun cp $EMU3_MOUNTPOINT/foo/t3 t3.bak
 test
-rm t3 t3.bak
 
-rm $EMU3_MOUNTPOINT/foo/t*
+logAndRun diff t3 t3.bak
+test
+logAndRun rm t3 t3.bak
+test
+
+logAndRun rm $EMU3_MOUNTPOINT/foo/t*
 test foo
 
-rmdir $EMU3_MOUNTPOINT/foo
+logAndRun rmdir $EMU3_MOUNTPOINT/foo
 test .
 
 # Testing dir expansion
 
-mkdir $EMU3_MOUNTPOINT/expansion
+logAndRun mkdir $EMU3_MOUNTPOINT/expansion
 test expansion
 
 for i in $(seq 1 16); do
         name=f-${i}
-        touch $EMU3_MOUNTPOINT/expansion/$name
+        logAndRun touch $EMU3_MOUNTPOINT/expansion/$name
         test expansion/$name
 done
 
-touch $EMU3_MOUNTPOINT/expansion/f-17
+logAndRun touch $EMU3_MOUNTPOINT/expansion/f-17
 test expansion
 
-rm -rf $EMU3_MOUNTPOINT/expansion
+logAndRun rm -rf $EMU3_MOUNTPOINT/expansion
 test .
+
+logAndRun mkdir $EMU3_MOUNTPOINT/src
+test .
+logAndRun mv $EMU3_MOUNTPOINT/src $EMU3_MOUNTPOINT/dst
+ls -l $EMU3_MOUNTPOINT/dst
+test .
+ls -l $EMU3_MOUNTPOINT/src
+testError
+
+logAndRun mkdir $EMU3_MOUNTPOINT/d1
+test
+logAndRun mkdir $EMU3_MOUNTPOINT/d2
+test
+echo "1234" > $EMU3_MOUNTPOINT/d1/t1
+test d1
+
+logAndRun mv $EMU3_MOUNTPOINT/d1/t1 $EMU3_MOUNTPOINT/d1/t2
+test d1
+logAndRun mv $EMU3_MOUNTPOINT/d1/t2 $EMU3_MOUNTPOINT/d2
+test d2/t2
+logAndRun cat $EMU3_MOUNTPOINT/d2/t2
+test
+logAndRun ls $EMU3_MOUNTPOINT/d1/t2
+testError d1
+logAndRun cat $EMU3_MOUNTPOINT/d2/t2
+[ "1234" == "$(< $EMU3_MOUNTPOINT/d2/t2)" ]
+test
 
 echo "Cleaning up..."
 sudo umount $EMU3_MOUNTPOINT
