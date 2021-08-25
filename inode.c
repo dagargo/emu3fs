@@ -54,8 +54,8 @@ struct emu3_dentry *emu3_find_dentry_by_inode(struct inode *inode,
 	return emu3_find_dentry_by_ino(inode->i_ino, inode->i_sb, b);
 }
 
-unsigned int emu3_dir_block_count(struct emu3_dentry *e3d,
-				  struct emu3_sb_info *info)
+static unsigned int emu3_dir_block_count(struct emu3_dentry *e3d,
+					 struct emu3_sb_info *info)
 {
 	unsigned int i = 0;
 	short *block = e3d->dattrs.block_list;
@@ -68,9 +68,10 @@ unsigned int emu3_dir_block_count(struct emu3_dentry *e3d,
 	return i;
 }
 
-unsigned int emu3_file_block_count(unsigned long id, struct emu3_sb_info *sb,
-				   struct emu3_dentry *e3d,
-				   int *start, int *bsize, int *fsize)
+static unsigned int emu3_file_block_count(unsigned long id,
+					  struct emu3_sb_info *sb,
+					  struct emu3_dentry *e3d, int *start,
+					  int *bsize, int *fsize)
 {
 	unsigned int start_cluster = cpu_to_le16(e3d->fattrs.start_cluster) - 1;
 	unsigned int clusters = cpu_to_le16(e3d->fattrs.clusters) - 1;
@@ -153,7 +154,8 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 			mode = EMU3_FILE_MODE;
 
 			e3i = EMU3_I(inode);
-			e3i->start_cluster = e3d->fattrs.start_cluster;
+			e3i->start_cluster =
+			    le16_to_cpu(e3d->fattrs.start_cluster);
 			inode->i_mapping->a_ops = &emu3_aops;
 		} else if (EMU3_DENTRY_IS_DIR(e3d)) {
 			file_block_size = emu3_dir_block_count(e3d, info);
