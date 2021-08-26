@@ -340,34 +340,9 @@ static int emu3_get_free_file_id(struct inode *dir)
 	return id;
 }
 
-static unsigned int emu3_count_used_dir_blocks(struct inode *dir)
-{
-	int i;
-	unsigned int blocks = 0;
-	short *block;
-	short blknum;
-	struct buffer_head *b;
-	struct emu3_dentry *e3d;
-	struct emu3_sb_info *info = EMU3_SB(dir->i_sb);
-
-	e3d = emu3_find_dentry_by_inode(dir, &b);
-
-	block = e3d->dattrs.block_list;
-	for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++, block++) {
-		blknum = le16_to_cpu(*block);
-		if (EMU3_DIR_BLOCK_OK(blknum, info))
-			blocks++;
-	}
-
-	brelse(b);
-
-	return blocks;
-}
-
 static struct emu3_dentry *emu3_find_empty_file_dentry(struct inode *dir,
 						       struct buffer_head **b,
-						       unsigned int *ino,
-						       unsigned int *dir_blocks)
+						       unsigned long *ino)
 {
 	int i, j;
 	short *block;
@@ -411,14 +386,21 @@ static struct emu3_dentry *emu3_find_empty_file_dentry(struct inode *dir,
 	for (j = 0; j < info->dir_content_blocks; j++) {
 		if (!info->dir_content_block_list[j]) {
 			info->dir_content_block_list[j] = 1;
+
 			blknum = info->start_dir_content_block + j;
 			e3d_dir->dattrs.block_list[i] = cpu_to_le16(blknum);
 			mark_buffer_dirty_inode(db, dir);
+
 			*b = sb_bread(dir->i_sb, blknum);
 			*ino = EMU3_I_ID(blknum, 0);
 			e3d = (struct emu3_dentry *)(*b)->b_data;
 			brelse(db);
-			(*dir_blocks)++;
+
+			dir->i_blocks++;
+			dir->i_size = dir->i_blocks * EMU3_BSIZE;
+			dir->i_mtime = current_time(dir);
+			mark_inode_dirty(dir);
+
 			return e3d;
 		}
 	}
@@ -429,8 +411,7 @@ static struct emu3_dentry *emu3_find_empty_file_dentry(struct inode *dir,
 }
 
 static int emu3_add_file_dentry(struct inode *dir, struct dentry *dentry,
-				unsigned int *ino, short *start_cluster,
-				unsigned int *dir_blocks)
+				unsigned long *ino, short *start_cluster)
 {
 	int id;
 	int ret = 0;
@@ -452,7 +433,7 @@ static int emu3_add_file_dentry(struct inode *dir, struct dentry *dentry,
 		goto cleanup;
 	}
 
-	e3d = emu3_find_empty_file_dentry(dir, &b, ino, dir_blocks);
+	e3d = emu3_find_empty_file_dentry(dir, &b, ino);
 
 	if (!e3d)
 		return -ENOSPC;
@@ -491,7 +472,7 @@ static int emu3_create_inode(struct inode *dir, struct dentry *dentry,
 {
 	int err;
 	struct inode *inode;
-	unsigned int dir_blocks, new_dir_blocks, ino;
+	unsigned long ino;
 	short start_cluster;
 	struct super_block *sb = dir->i_sb;
 	struct emu3_sb_info *info = EMU3_SB(sb);
@@ -504,11 +485,7 @@ static int emu3_create_inode(struct inode *dir, struct dentry *dentry,
 	if (!inode)
 		return -ENOSPC;
 
-	dir_blocks = emu3_count_used_dir_blocks(dir);
-	new_dir_blocks = dir_blocks;
-	err =
-	    emu3_add_file_dentry(dir, dentry, &ino, &start_cluster,
-				 &new_dir_blocks);
+	err = emu3_add_file_dentry(dir, dentry, &ino, &start_cluster);
 	if (err) {
 		iput(inode);
 		return err;
@@ -526,13 +503,6 @@ static int emu3_create_inode(struct inode *dir, struct dentry *dentry,
 	emu3_init_cluster_list(inode);
 	insert_inode_hash(inode);
 	mark_inode_dirty(inode);
-
-	if (dir_blocks != new_dir_blocks) {
-		dir->i_blocks = new_dir_blocks;
-		dir->i_size = new_dir_blocks * EMU3_BSIZE;
-		dir->i_mtime = current_time(inode);
-		mark_inode_dirty(dir);
-	}
 
 	d_instantiate(dentry, inode);
 
