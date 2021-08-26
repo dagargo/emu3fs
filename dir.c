@@ -344,12 +344,11 @@ static struct emu3_dentry *emu3_find_empty_file_dentry(struct inode *dir,
 						       struct buffer_head **b,
 						       unsigned long *ino)
 {
-	int i, j;
-	short *block;
-	short blknum;
+	int i, j, id;
+	short *block, blknum;
 	struct buffer_head *db;
-	struct emu3_dentry *e3d;
 	struct emu3_dentry *e3d_dir;
+	struct emu3_dentry *e3d = NULL;
 	struct emu3_sb_info *info = EMU3_SB(dir->i_sb);
 
 	e3d_dir = emu3_find_dentry_by_inode(dir, &db);
@@ -357,8 +356,10 @@ static struct emu3_dentry *emu3_find_empty_file_dentry(struct inode *dir,
 	if (!e3d_dir)
 		return NULL;
 
-	if (!EMU3_DENTRY_IS_DIR(e3d_dir))
+	if (!EMU3_DENTRY_IS_DIR(e3d_dir)) {
+		e3d = NULL;
 		goto cleanup;
+	}
 
 	block = e3d_dir->dattrs.block_list;
 	for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++, block++) {
@@ -372,19 +373,21 @@ static struct emu3_dentry *emu3_find_empty_file_dentry(struct inode *dir,
 		for (j = 0; j < EMU3_ENTRIES_PER_BLOCK; j++, e3d++) {
 			if (!EMU3_DENTRY_IS_FILE(e3d)) {
 				*ino = EMU3_I_ID(blknum, j);
-				brelse(db);
-				return e3d;
+				goto add_id;
 			}
 		}
 
 		brelse(*b);
 	}
 
-	if (i == EMU3_BLOCKS_PER_DIR)
+	if (i == EMU3_BLOCKS_PER_DIR) {
+		e3d = NULL;
 		goto cleanup;
+	}
 
 	for (j = 0; j < info->dir_content_blocks; j++) {
 		if (!info->dir_content_block_list[j]) {
+
 			info->dir_content_block_list[j] = 1;
 
 			blknum = info->start_dir_content_block + j;
@@ -393,27 +396,40 @@ static struct emu3_dentry *emu3_find_empty_file_dentry(struct inode *dir,
 
 			*b = sb_bread(dir->i_sb, blknum);
 			*ino = EMU3_I_ID(blknum, 0);
+
 			e3d = (struct emu3_dentry *)(*b)->b_data;
-			brelse(db);
 
 			dir->i_blocks++;
 			dir->i_size = dir->i_blocks * EMU3_BSIZE;
+			//TODO: fix timestamps
 			dir->i_mtime = current_time(dir);
 			mark_inode_dirty(dir);
 
-			return e3d;
+			break;
 		}
 	}
 
+ add_id:
+	id = emu3_get_free_file_id(dir);
+
+	if (id < 0) {
+		printk(KERN_CRIT
+		       "%s: No ID available for a newly created dentry\n",
+		       EMU3_MODULE_NAME);
+		e3d = NULL;
+		goto cleanup;
+	}
+
+	e3d->id = id;
+
  cleanup:
 	brelse(db);
-	return NULL;
+	return e3d;
 }
 
 static int emu3_add_file_dentry(struct inode *dir, struct dentry *dentry,
 				unsigned long *ino, short *start_cluster)
 {
-	int id;
 	int ret = 0;
 	struct buffer_head *b;
 	struct emu3_dentry *e3d;
@@ -438,28 +454,15 @@ static int emu3_add_file_dentry(struct inode *dir, struct dentry *dentry,
 	if (!e3d)
 		return -ENOSPC;
 
-	id = emu3_get_free_file_id(dir);
-
-	if (id < 0) {
-		printk(KERN_CRIT
-		       "%s: No ID available for a newly created file\n",
-		       EMU3_MODULE_NAME);
-		ret = -ENOSPC;
-		goto cleanup;
-	}
-
 	emu3_set_dentry_name(e3d, &dentry->d_name);
 	e3d->unknown = 0;
-	e3d->id = id;
+	//The id is set in emu3_find_empty_file_dentry
 	e3d->fattrs.start_cluster = le16_to_cpu(*start_cluster);
 	e3d->fattrs.clusters = le16_to_cpu(1);
 	e3d->fattrs.blocks = le16_to_cpu(1);
 	e3d->fattrs.bytes = le16_to_cpu(0);
 	e3d->fattrs.type = EMU3_FTYPE_STD;
 	memset(e3d->fattrs.props, 0, 5);
-	//TODO: fix timestamps
-	dir->i_mtime = current_time(dir);
-
 	mark_buffer_dirty_inode(b, dir);
 
  cleanup:
@@ -672,6 +675,8 @@ static int emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
 		       unsigned int flags)
 {
 	int err = 0;
+	unsigned char id;
+	unsigned long ino = 0;
 	struct super_block *sb = old_dentry->d_inode->i_sb;
 	struct emu3_sb_info *info = EMU3_SB(sb);
 	struct buffer_head *old_b, *new_b;
@@ -682,6 +687,12 @@ static int emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
 
 	mutex_lock(&info->lock);
 
+	if (EMU3_IS_I_ROOT_DIR(old_dir) && !EMU3_IS_I_ROOT_DIR(new_dir)) {
+		//The emu3 filesystem does not allow directories in directories.
+		err = -EPERM;
+		goto end;
+	}
+
 	if (new_dentry->d_inode) {
 		if (flags & RENAME_NOREPLACE) {
 			err = -EEXIST;
@@ -689,21 +700,27 @@ static int emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
 		}
 
 		new_e3d =
-		    emu3_find_dentry_by_name(new_dir, new_dentry, &new_b, NULL);
+		    emu3_find_dentry_by_inode(new_dentry->d_inode, &new_b);
 		if (new_e3d) {
-			new_e3d->fattrs.type = EMU3_FTYPE_DEL;
-			mark_buffer_dirty_inode(new_b, new_dir);
-			new_dir->i_mtime = current_time(new_dir);
-			mark_inode_dirty(new_dir);
+			if (old_dir == new_dir) {
+				new_e3d->fattrs.type = EMU3_FTYPE_DEL;
+				mark_buffer_dirty_inode(new_b, new_dir);
+				new_dir->i_mtime = current_time(new_dir);
+				mark_inode_dirty(new_dir);
+			}
 		} else
 			printk(KERN_WARNING
 			       "%s: No entry found. As it was meant to be deleted we can continue safely.\n",
 			       EMU3_MODULE_NAME);
 
+		brelse(new_b);
+
+		ino = emu3_get_i_map(info, new_dentry->d_inode);
+		emu3_clear_i_map(info, new_dentry->d_inode);
+
 		emu3_clear_cluster_list(new_dentry->d_inode);
 		inode_dec_link_count(new_dentry->d_inode);
 		d_delete(new_dentry);
-		brelse(new_b);
 	}
 
 	old_e3d = emu3_find_dentry_by_name(old_dir, old_dentry, &old_b, NULL);
@@ -718,7 +735,32 @@ static int emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
 		old_dir->i_mtime = current_time(old_dir);
 		mark_inode_dirty(old_dir);
 	} else {
-		err = -EPERM;
+		if (ino)
+			emu3_set_i_map(info, old_dentry->d_inode, ino);
+		else {
+			new_e3d =
+			    emu3_find_empty_file_dentry(new_dir, &new_b, &ino);
+
+			if (!new_e3d) {
+				err = -ENOSPC;
+				goto cleanup;
+			}
+
+			id = new_e3d->id;
+			memcpy(new_e3d, old_e3d, sizeof(struct emu3_dentry));
+			new_e3d->id = id;
+
+			//TODO: fix timestamps
+			new_dir->i_mtime = current_time(new_dir);
+			mark_buffer_dirty_inode(new_b, new_dir);
+
+			emu3_set_i_map(info, old_dentry->d_inode, ino);
+		}
+
+		old_e3d->fattrs.type = EMU3_FTYPE_DEL;
+		mark_buffer_dirty_inode(old_b, old_dir);
+		old_dir->i_mtime = current_time(old_dir);
+		mark_inode_dirty(old_dir);
 	}
 
  cleanup:

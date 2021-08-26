@@ -32,6 +32,12 @@ void emu3_init_once(void *foo)
 	inode_init_once(&e3i->vfs_inode);
 }
 
+inline void emu3_set_i_map(struct emu3_sb_info *info,
+			   struct inode *inode, unsigned long address)
+{
+	info->i_maps[inode->i_ino - EMU3_I_ID_OFFSET] = address;
+}
+
 inline unsigned long emu3_get_i_map(struct emu3_sb_info *info,
 				    struct inode *inode)
 {

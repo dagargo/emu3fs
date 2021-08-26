@@ -7,6 +7,13 @@ if [ "$EMU3_MOUNTPOINT" == "" ]; then
   exit -1
 fi
 
+function cleanUp() {
+        echo "Cleaning up..."
+        sudo umount $EMU3_MOUNTPOINT
+        sudo losetup -d /dev/loop0
+        rm image.iso
+}
+
 function logAndRun() {
         echo ">>> Running '$*'..."
         $*
@@ -18,7 +25,7 @@ function testCommon() {
   [ $EMU3_TEST_DEBUG -eq 1 ] && [ -n "$2" ] && echo "Listing '$EMU3_MOUNTPOINT/$2'..." && ls -lai $EMU3_MOUNTPOINT/$2
   echo "Results: $ok/$total"
   echo
-  [ $1 -ne 1 ] && exit 1
+  [ $1 -ne 1 ] && cleanUp && exit 1
 }
 
 function test() {
@@ -65,14 +72,14 @@ test .
 logAndRun mkdir $EMU3_MOUNTPOINT/foo
 test
 
-echo "1234" > $EMU3_MOUNTPOINT/foo/t1
+echo "123" > $EMU3_MOUNTPOINT/foo/t1
 test
 
 logAndRun cat $EMU3_MOUNTPOINT/foo/t1
-echo "5678" >> $EMU3_MOUNTPOINT/foo/t1
+echo "4567" >> $EMU3_MOUNTPOINT/foo/t1
 test
 logAndRun cat $EMU3_MOUNTPOINT/foo/t1
-[ "12345678" != "$(< $EMU3_MOUNTPOINT/foo/t1)" ]
+[ "1234567" != "$(< $EMU3_MOUNTPOINT/foo/t1)" ]
 test foo/t1
 
 logAndRun cp $EMU3_MOUNTPOINT/foo/t1 $EMU3_MOUNTPOINT/foo/t3
@@ -150,38 +157,42 @@ logAndRun mkdir $EMU3_MOUNTPOINT/d1
 test
 logAndRun mkdir $EMU3_MOUNTPOINT/d2
 test
-echo "1234" > $EMU3_MOUNTPOINT/d1/t1
+echo "12345" > $EMU3_MOUNTPOINT/d1/t1
+logAndRun cat $EMU3_MOUNTPOINT/d1/t1
 test d1
 
 logAndRun mv $EMU3_MOUNTPOINT/d1/t1 $EMU3_MOUNTPOINT/d1/t2
 test d1
+logAndRun cat $EMU3_MOUNTPOINT/d1/t2
 logAndRun ls -li $EMU3_MOUNTPOINT/d1/t2
-test
+test d1
 logAndRun ls -li $EMU3_MOUNTPOINT/d1/t1
 testError
 
-# This operation is not alloweb by the emu3 filesystem.
+logAndRun touch $EMU3_MOUNTPOINT/d2/t2
+logAndRun ls -li $EMU3_MOUNTPOINT/d2
 logAndRun mv $EMU3_MOUNTPOINT/d1/t2 $EMU3_MOUNTPOINT/d2
-testError d2
-logAndRun ls -li $EMU3_MOUNTPOINT/d1/t2
-test d1
-
-echo "12345678" > $EMU3_MOUNTPOINT/d1/t2
-test d1
-logAndRun ls -li $EMU3_MOUNTPOINT/d2/t2
-logAndRun cp $EMU3_MOUNTPOINT/d1/t2 $EMU3_MOUNTPOINT/d2/t2
 test d2
+logAndRun cat $EMU3_MOUNTPOINT/d2/t2
 logAndRun ls -li $EMU3_MOUNTPOINT/d2/t2
-test
-[ "12345678" == "$(< $EMU3_MOUNTPOINT/d2/t2)" ]
+test d2
+logAndRun ls -li $EMU3_MOUNTPOINT/d1/t1
+testError d1
+
+logAndRun rm $EMU3_MOUNTPOINT/d2/t2
+echo "1234567" > $EMU3_MOUNTPOINT/d1/t2
+logAndRun mv $EMU3_MOUNTPOINT/d1/t2 $EMU3_MOUNTPOINT/d2
+test d2
+logAndRun cat $EMU3_MOUNTPOINT/d2/t2
+logAndRun ls -li $EMU3_MOUNTPOINT/d2/t2
+test d2
+logAndRun ls -li $EMU3_MOUNTPOINT/d1/t1
+testError d1
 
 logAndRun mv $EMU3_MOUNTPOINT/d1 $EMU3_MOUNTPOINT/d2
 testError
 
-echo "Cleaning up..."
-sudo umount $EMU3_MOUNTPOINT
-sudo losetup -d /dev/loop0
-rm image.iso
+cleanUp
 
 v=0
 [ $ok -ne $total ] && v=1

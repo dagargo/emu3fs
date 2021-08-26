@@ -198,3 +198,5 @@ unsigned long emu3_get_or_add_i_map(struct emu3_sb_info *, unsigned long);
 unsigned long emu3_get_i_map(struct emu3_sb_info *, struct inode *);
 
 void emu3_clear_i_map(struct emu3_sb_info *, struct inode *);
+
+void emu3_set_i_map(struct emu3_sb_info *, struct inode *, unsigned long);
