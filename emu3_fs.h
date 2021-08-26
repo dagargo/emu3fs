@@ -42,7 +42,7 @@
 
 #define EMU3_I_ID_OFFSET_SIZE 4
 #define EMU3_I_ID_OFFSET_MASK ((1 << EMU3_I_ID_OFFSET_SIZE) - 1)
-#define EMU3_I_ID(blknum, offset) ((((blknum) << EMU3_I_ID_OFFSET_SIZE) | ((offset) & EMU3_I_ID_OFFSET_MASK)) + EMU3_I_ID_OFFSET)
+#define EMU3_I_ID(blknum, offset) (((blknum) << EMU3_I_ID_OFFSET_SIZE) | ((offset) & EMU3_I_ID_OFFSET_MASK))
 #define EMU3_I_ID_GET_BLKNUM(id) ((id) >> EMU3_I_ID_OFFSET_SIZE)
 #define EMU3_I_ID_GET_OFFSET(id) ((id) & EMU3_I_ID_OFFSET_MASK)
 
@@ -55,6 +55,8 @@
 #define EMU3_LENGTH_FILENAME 16
 
 #define EMU3_ENTRIES_PER_BLOCK (EMU3_BSIZE / (sizeof(struct emu3_dentry)))
+
+#define EMU3_TOTAL_ENTRIES(info) (((info)->root_blocks + (info)->dir_content_blocks) * EMU3_ENTRIES_PER_BLOCK)
 
 //For devices, this should be 102, 100 regular banks + 2 special rom files with fixed ids at 0x6b and 0x6d.
 //We use the maximum physically allowed.
@@ -70,11 +72,11 @@
 
 #define EMU3_IS_I_ROOT_DIR(inode) ((inode)->i_ino == EMU3_ROOT_DIR_I_ID)
 
-#define EMU3_IS_I_REG_DIR(inode) (((inode)->i_ino >= EMU3_I_ID((EMU3_SB((inode)->i_sb))->start_root_block, 0)) && \
-			          ((inode)->i_ino <  EMU3_I_ID((EMU3_SB((inode)->i_sb))->start_dir_content_block, 0)))
+#define EMU3_IS_I_REG_DIR(dir, info) (((emu3_get_i_map(info, dir)) >= EMU3_I_ID((info)->start_root_block, 0)) && \
+ 		                     ((emu3_get_i_map(info, dir)) <  EMU3_I_ID((info)->start_dir_content_block, 0)))
 
-#define EMU3_DENTRY_IS_FILE(e3d) (((e3d)->id >= 0) &&               \
-                                  ((e3d)->id < EMU3_MAX_FILES_PER_DIR) && \
+#define EMU3_DENTRY_IS_FILE(e3d) (((e3d)->id >= 0) &&                      \
+                                  ((e3d)->id < EMU3_MAX_FILES_PER_DIR) &&  \
 				  ((e3d)->fattrs.clusters > 0) &&          \
                                    (				           \
 		          	   (e3d)->fattrs.type == EMU3_FTYPE_STD || \
@@ -192,3 +194,7 @@ struct emu3_dentry *emu3_find_dentry_by_inode(struct inode *,
 					      struct buffer_head **);
 
 unsigned long emu3_get_or_add_i_map(struct emu3_sb_info *, unsigned long);
+
+unsigned long emu3_get_i_map(struct emu3_sb_info *, struct inode *);
+
+void emu3_clear_i_map(struct emu3_sb_info *, struct inode *);

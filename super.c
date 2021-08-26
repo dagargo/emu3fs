@@ -55,7 +55,7 @@ static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 	struct buffer_head *bh;
 	int err = 0;
 
-	if (EMU3_IS_I_ROOT_DIR(inode) || EMU3_IS_I_REG_DIR(inode))
+	if (EMU3_IS_I_ROOT_DIR(inode) || EMU3_IS_I_REG_DIR(inode, info))
 		return 0;
 
 	mutex_lock(&info->lock);
@@ -225,6 +225,7 @@ static void emu3_put_super(struct super_block *sb)
 	if (info) {
 		kfree(info->cluster_list);
 		kfree(info->dir_content_block_list);
+		kfree(info->i_maps);
 		kfree(info);
 		sb->s_fs_info = NULL;
 	}
@@ -487,23 +488,33 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent,
 	}
 	memset(info->dir_content_block_list, 0, size);
 
+	size = sizeof(unsigned long) * EMU3_TOTAL_ENTRIES(info);
+	info->i_maps = kzalloc(size, GFP_KERNEL);
+	if (!info->i_maps) {
+		err = -ENOMEM;
+		goto out4;
+	}
+	memset(info->i_maps, 0, size);
+
 	sb->s_op = &emu3_super_operations;
 
 	if (emu4)
 		root_ino = 1;
 	else
-		root_ino = EMU3_I_ID(info->start_root_block, 0);
+		root_ino =
+		    emu3_get_or_add_i_map(info, EMU3_I_ID
+					  (info->start_root_block, 0));
 	inode = emu3_get_inode(sb, root_ino);
 	if (!inode) {
 		err = -EIO;
-		goto out4;
+		goto out5;
 	}
 
 	sb->s_root = d_make_root(inode);
 	if (!sb->s_root) {
 		iput(inode);
 		err = -ENOMEM;
-		goto out4;
+		goto out5;
 	}
 
 	for (i = 0; i < info->root_blocks; i++) {
@@ -549,8 +560,10 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent,
 		return 0;
 	}
 
- out4:
+ out5:
 	kfree(info->dir_content_block_list);
+ out4:
+	kfree(info->i_maps);
  out3:
 	kfree(info->cluster_list);
  out2:

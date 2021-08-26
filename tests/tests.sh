@@ -52,13 +52,13 @@ echo "Mounting image as emu4..."
 sudo mount -t emu4 /dev/loop0 $EMU3_MOUNTPOINT
 
 logAndRun mkdir $EMU3_MOUNTPOINT/foo
-test
+test .
 
 logAndRun mkdir $EMU3_MOUNTPOINT/foo
 testError
 
 logAndRun rmdir $EMU3_MOUNTPOINT/foo
-test
+test .
 
 logAndRun mkdir $EMU3_MOUNTPOINT/foo
 test

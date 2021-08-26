@@ -242,8 +242,8 @@ static int emu3_iterate(struct file *f, struct dir_context *ctx)
 	struct inode *dir = file_inode(f);
 	struct emu3_sb_info *info = EMU3_SB(dir->i_sb);
 
-	if (!EMU3_IS_I_ROOT_DIR(dir) && !EMU3_IS_I_REG_DIR(dir))
-		return -EBADF;
+	if (!EMU3_IS_I_ROOT_DIR(dir) && !EMU3_IS_I_REG_DIR(dir, info))
+		return -ENOTDIR;
 
 	if (ctx->pos == 0) {
 		ctx->pos++;
@@ -267,10 +267,11 @@ static int emu3_iterate(struct file *f, struct dir_context *ctx)
 static struct dentry *emu3_lookup(struct inode *dir,
 				  struct dentry *dentry, unsigned int flags)
 {
-	struct inode *inode = NULL;
+	unsigned long ino, i_ino;
 	struct buffer_head *b;
 	struct emu3_dentry *e3d;
-	unsigned long ino;
+	struct inode *inode = NULL;
+	struct emu3_sb_info *info = EMU3_SB(dir->i_sb);
 
 	if (dentry->d_name.len > EMU3_LENGTH_FILENAME)
 		return ERR_PTR(-ENAMETOOLONG);
@@ -279,7 +280,8 @@ static struct dentry *emu3_lookup(struct inode *dir,
 
 	if (e3d) {
 		brelse(b);
-		inode = emu3_get_inode(dir->i_sb, ino);
+		i_ino = emu3_get_or_add_i_map(info, ino);
+		inode = emu3_get_inode(dir->i_sb, i_ino);
 		if (IS_ERR(inode))
 			return ERR_CAST(inode);
 	}
@@ -518,7 +520,7 @@ static int emu3_create_inode(struct inode *dir, struct dentry *dentry,
 	inode->i_op = &emu3_inode_operations_file;
 	inode->i_fop = &emu3_file_operations_file;
 	inode->i_mapping->a_ops = &emu3_aops;
-	inode->i_ino = ino;
+	inode->i_ino = emu3_get_or_add_i_map(info, ino);
 	inode->i_size = 0;
 	EMU3_I(inode)->start_cluster = start_cluster;
 	emu3_init_cluster_list(inode);
@@ -682,6 +684,7 @@ static int emu3_unlink(struct inode *dir, struct dentry *dentry)
 
 	e3d->fattrs.type = EMU3_FTYPE_DEL;
 	mark_buffer_dirty_inode(b, dir);
+	emu3_clear_i_map(info, inode);
 	dir->i_ctime = dir->i_mtime = current_time(dir);
 	mark_inode_dirty(dir);
 	inode->i_ctime = dir->i_ctime;
@@ -783,7 +786,7 @@ static int emu3_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	inode->i_blocks = 1;
 	inode->i_op = &emu3_inode_operations_dir;
 	inode->i_fop = &emu3_file_operations_dir;
-	inode->i_ino = ino;
+	inode->i_ino = emu3_get_or_add_i_map(info, ino);
 	inode->i_size = EMU3_BSIZE;
 	inode->i_mtime = inode->i_atime = inode->i_ctime = current_time(inode);
 	insert_inode_hash(inode);
@@ -833,6 +836,7 @@ static int emu3_rmdir(struct inode *dir, struct dentry *dentry)
 		info->dir_content_block_list[blknum] = 0;
 	}
 	memset(e3d, 0, sizeof(struct emu3_dentry));
+	emu3_clear_i_map(info, inode);
 	inode_dec_link_count(dir);
 	inode_dec_link_count(inode);
 	mark_buffer_dirty_inode(b, dir);
