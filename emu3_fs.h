@@ -108,7 +108,7 @@ struct emu3_sb_info {
 	unsigned int start_data_block;
 	unsigned int blocks_per_cluster;
 	unsigned int clusters;
-	unsigned short *cluster_list;
+	short *cluster_list;
 	bool *dir_content_block_list;
 	struct mutex lock;
 };
