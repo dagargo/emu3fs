@@ -15,7 +15,7 @@
  *   GNU General Public License for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with emu3fs.  If not, see <http://www.gnu.org/licenses/>.
+ *   along with emu3fs. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "emu3_fs.h"
@@ -407,7 +407,7 @@ static struct emu3_dentry *emu3_find_empty_file_dentry(struct inode *dir,
 			e3d_dir->dattrs.block_list[i] = cpu_to_le16(blknum);
 			mark_buffer_dirty_inode(db, dir);
 			*b = sb_bread(dir->i_sb, blknum);
-			*ino = EMU3_I_ID(blknum, j);
+			*ino = EMU3_I_ID(blknum, 0);
 			e3d = (struct emu3_dentry *)(*b)->b_data;
 			brelse(db);
 			(*dir_blocks)++;
@@ -667,9 +667,6 @@ static int emu3_unlink(struct inode *dir, struct dentry *dentry)
 	struct inode *inode = dentry->d_inode;
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
 
-	if (dentry->d_name.len > EMU3_LENGTH_FILENAME)
-		return -ENAMETOOLONG;
-
 	e3d = emu3_find_dentry_by_name(dir, dentry, &b, NULL);
 
 	if (e3d == NULL)
@@ -700,69 +697,53 @@ static int emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
 	struct emu3_sb_info *info = EMU3_SB(sb);
 	struct buffer_head *old_b, *new_b;
 	struct emu3_dentry *old_e3d, *new_e3d;
-	struct inode *new_inode;
-	struct emu3_inode *e3i;
 
 	if (flags & ~RENAME_NOREPLACE)
 		return -EINVAL;
+
+	// As inode numbers are addresses, we can not move a file to another directory and keep the original inode number.
+	if (old_dir != new_dir)
+		return -EPERM;
 
 	mutex_lock(&info->lock);
 
 	old_e3d = emu3_find_dentry_by_name(old_dir, old_dentry, &old_b, NULL);
 	if (!old_e3d) {
 		err = -ENOENT;
-		goto cleanup_old;
+		goto end;
 	}
 
-	if (old_dir == new_dir)	//This is either a directory or a file.
-		emu3_set_dentry_name(old_e3d, &new_dentry->d_name);
-	else {			//This is a file.
-		if (new_dentry->d_inode)
-			new_inode = new_dentry->d_inode;
-		else {
-			err =
-			    emu3_create_inode(new_dir, new_dentry,
-					      old_dentry->d_inode->i_mode,
-					      &new_inode);
-			if (err)
-				goto cleanup_new;
-		}
-
-		new_e3d = emu3_find_dentry_by_ino(new_inode->i_ino, sb, &new_b);
-		if (!new_e3d) {
-			printk(KERN_CRIT
-			       "%s: No dentry found for a newly created inode\n",
-			       EMU3_MODULE_NAME);
-			err = -ENOENT;
-			goto cleanup_new;
-		}
-
-		emu3_clear_cluster_list(new_inode);
-		new_inode->i_mtime = current_time(new_dir);
-		mark_inode_dirty(new_inode);
-
-		memcpy(&new_e3d->fattrs, &old_e3d->fattrs,
-		       sizeof(struct emu3_file_attrs));
-		mark_buffer_dirty_inode(new_b, new_dir);
-		brelse(new_b);
-
-		e3i = EMU3_I(new_inode);
-		e3i->start_cluster = new_e3d->fattrs.start_cluster;
-
-		old_dentry->d_inode->i_mtime = current_time(old_dir);
-		inode_dec_link_count(old_dentry->d_inode);
-		mark_inode_dirty(old_dentry->d_inode);
-
-		memset(old_e3d, 0, sizeof(struct dentry));
-	}
-
+	emu3_set_dentry_name(old_e3d, &new_dentry->d_name);
 	mark_buffer_dirty_inode(old_b, old_dir);
 	old_dir->i_mtime = current_time(old_dir);
 	mark_inode_dirty(old_dir);
 
- cleanup_new:
+	if (new_dentry->d_inode) {
+		if (flags & RENAME_NOREPLACE) {
+			err = -EEXIST;
+			goto end;
+		}
+
+		new_e3d =
+		    emu3_find_dentry_by_name(new_dir, new_dentry, &new_b, NULL);
+		if (new_e3d) {
+			new_e3d->fattrs.type = EMU3_FTYPE_DEL;
+			mark_buffer_dirty_inode(new_b, new_dir);
+			new_dir->i_mtime = current_time(new_dir);
+			mark_inode_dirty(new_dir);
+		} else
+			printk(KERN_WARNING
+			       "%s: No entry found. As it was meant to be deleted we can continue safely.\n",
+			       EMU3_MODULE_NAME);
+
+		emu3_clear_cluster_list(new_dentry->d_inode);
+		inode_dec_link_count(new_dentry->d_inode);
+		d_delete(new_dentry);
+	}
+
 	brelse(old_b);
- cleanup_old:
+
+ end:
 	mutex_unlock(&info->lock);
 	return err;
 }

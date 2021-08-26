@@ -65,10 +65,10 @@ test
 echo "1234" > $EMU3_MOUNTPOINT/foo/t1
 test
 
-[ $EMU3_TEST_DEBUG -eq 1 ] && cat $EMU3_MOUNTPOINT/foo/t1
+logAndRun cat $EMU3_MOUNTPOINT/foo/t1
 echo "5678" >> $EMU3_MOUNTPOINT/foo/t1
 test
-[ $EMU3_TEST_DEBUG -eq 1 ] && cat $EMU3_MOUNTPOINT/foo/t1
+logAndRun cat $EMU3_MOUNTPOINT/foo/t1
 [ "12345678" != "$(< $EMU3_MOUNTPOINT/foo/t1)" ]
 test foo/t1
 
@@ -138,9 +138,9 @@ test .
 logAndRun mkdir $EMU3_MOUNTPOINT/src
 test .
 logAndRun mv $EMU3_MOUNTPOINT/src $EMU3_MOUNTPOINT/dst
-ls -l $EMU3_MOUNTPOINT/dst
+logAndRun ls -l $EMU3_MOUNTPOINT/dst
 test .
-ls -l $EMU3_MOUNTPOINT/src
+logAndRun ls -l $EMU3_MOUNTPOINT/src
 testError
 
 logAndRun mkdir $EMU3_MOUNTPOINT/d1
@@ -152,15 +152,28 @@ test d1
 
 logAndRun mv $EMU3_MOUNTPOINT/d1/t1 $EMU3_MOUNTPOINT/d1/t2
 test d1
+logAndRun ls -li $EMU3_MOUNTPOINT/d1/t2
+test
+logAndRun ls -li $EMU3_MOUNTPOINT/d1/t1
+testError
+
+# This operation is not alloweb by the emu3 filesystem.
 logAndRun mv $EMU3_MOUNTPOINT/d1/t2 $EMU3_MOUNTPOINT/d2
-test d2/t2
-logAndRun cat $EMU3_MOUNTPOINT/d2/t2
+testError d2
+logAndRun ls -li $EMU3_MOUNTPOINT/d1/t2
+test d1
+
+echo "12345678" > $EMU3_MOUNTPOINT/d1/t2
+test d1
+logAndRun ls -li $EMU3_MOUNTPOINT/d2/t2
+logAndRun cp $EMU3_MOUNTPOINT/d1/t2 $EMU3_MOUNTPOINT/d2/t2
+test d2
+logAndRun ls -li $EMU3_MOUNTPOINT/d2/t2
 test
-logAndRun ls $EMU3_MOUNTPOINT/d1/t2
-testError d1
-logAndRun cat $EMU3_MOUNTPOINT/d2/t2
-[ "1234" == "$(< $EMU3_MOUNTPOINT/d2/t2)" ]
-test
+[ "12345678" == "$(< $EMU3_MOUNTPOINT/d2/t2)" ]
+
+logAndRun mv $EMU3_MOUNTPOINT/d1 $EMU3_MOUNTPOINT/d2
+testError
 
 echo "Cleaning up..."
 sudo umount $EMU3_MOUNTPOINT
