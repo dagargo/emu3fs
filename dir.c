@@ -143,16 +143,20 @@ static struct emu3_dentry *emu3_find_dentry_by_name(struct inode *dir,
 	return NULL;
 }
 
-static int emu3_emit(struct dir_context *ctx, struct emu3_dentry *e3d,
-		     unsigned int blknum, unsigned int offset, unsigned type)
+static int emu3_emit(struct dir_context *ctx,
+		     struct emu3_dentry *e3d, unsigned int blknum,
+		     unsigned int offset, unsigned type,
+		     struct emu3_sb_info *info)
 {
 	int len;
+	unsigned int ino;
 	char fixed[EMU3_LENGTH_FILENAME];
 
 	emu3_filename_fix(e3d->name, fixed);
 	len = emu3_filename_length(fixed);
+	ino = emu3_get_or_add_i_map(info, EMU3_I_ID(blknum, offset));
 	ctx->pos++;
-	return dir_emit(ctx, fixed, len, EMU3_I_ID(blknum, offset), type);
+	return dir_emit(ctx, fixed, len, ino, type);
 }
 
 static int emu3_iterate_dir(struct file *f, struct dir_context *ctx,
@@ -184,7 +188,8 @@ static int emu3_iterate_dir(struct file *f, struct dir_context *ctx,
 				continue;
 
 			if (ctx->pos == k) {
-				if (!emu3_emit(ctx, e3d, blknum, j, DT_REG)) {
+				if (!emu3_emit
+				    (ctx, e3d, blknum, j, DT_REG, info)) {
 					brelse(b);
 					goto cleanup;
 				}
@@ -218,7 +223,8 @@ static int emu3_iterate_root(struct file *f, struct dir_context *ctx,
 				continue;
 
 			if (ctx->pos == k) {
-				if (!emu3_emit(ctx, e3d, blknum, j, DT_DIR)) {
+				if (!emu3_emit
+				    (ctx, e3d, blknum, j, DT_DIR, info)) {
 					brelse(b);
 					return k;
 				}

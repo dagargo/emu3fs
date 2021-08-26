@@ -32,12 +32,23 @@ void emu3_init_once(void *foo)
 	inode_init_once(&e3i->vfs_inode);
 }
 
+unsigned long emu3_get_or_add_i_map(struct emu3_sb_info *info,
+				    unsigned long ino)
+{
+	//Search in the map
+	//If found, return the index + EMU3_I_ID_OFFSET
+	//If not, add the map at a free position and return the index + EMU3_I_ID_OFFSET
+	return ino + EMU3_I_ID_OFFSET;
+}
+
 struct emu3_dentry *emu3_find_dentry_by_inode(struct inode *inode,
 					      struct buffer_head **b)
 {
-	unsigned int blknum = EMU3_I_ID_GET_BLKNUM(inode->i_ino);
-	unsigned int offset = EMU3_I_ID_GET_OFFSET(inode->i_ino);
 	struct emu3_dentry *e3d;
+	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
+	unsigned int mapped = inode->i_ino - EMU3_I_ID_OFFSET;	//info->i_map[inode->ino - EMU3_I_ID_OFFSET];
+	unsigned int blknum = EMU3_I_ID_GET_BLKNUM(mapped);
+	unsigned int offset = EMU3_I_ID_GET_OFFSET(mapped);
 
 	*b = sb_bread(inode->i_sb, blknum);
 
@@ -125,7 +136,6 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 		return inode;
 
 	if (EMU3_IS_I_ROOT_DIR(inode)) {
-		file_block_start = info->start_root_block;
 		file_block_size = info->root_blocks;
 		file_size = info->root_blocks * EMU3_BSIZE;
 		iops = &emu3_inode_operations_dir;

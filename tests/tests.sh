@@ -18,6 +18,7 @@ function testCommon() {
   [ $EMU3_TEST_DEBUG -eq 1 ] && [ -n "$2" ] && echo "Listing '$EMU3_MOUNTPOINT/$2'..." && ls -lai $EMU3_MOUNTPOINT/$2
   echo "Results: $ok/$total"
   echo
+  [ $1 -ne 1 ] && exit 1
 }
 
 function test() {

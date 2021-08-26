@@ -33,13 +33,16 @@
 #define EMU3_BSIZE 0x200
 #define EMU3_CLUSTER_ENTRIES_PER_BLOCK  (EMU3_BSIZE >> 1)
 
+#define EMU3_ROOT_DIR_I_ID 1	//Any value is valid as long as is lower than the first inode ID.
+#define EMU3_I_ID_OFFSET   8
+
 #define EMU3_SB(sb) ((struct emu3_sb_info *)(sb)->s_fs_info)
 
 #define EMU3_I(inode) ((struct emu3_inode *)container_of((inode), struct emu3_inode, vfs_inode))
 
 #define EMU3_I_ID_OFFSET_SIZE 4
 #define EMU3_I_ID_OFFSET_MASK ((1 << EMU3_I_ID_OFFSET_SIZE) - 1)
-#define EMU3_I_ID(blknum, offset) (((blknum) << EMU3_I_ID_OFFSET_SIZE) | ((offset) & EMU3_I_ID_OFFSET_MASK))
+#define EMU3_I_ID(blknum, offset) ((((blknum) << EMU3_I_ID_OFFSET_SIZE) | ((offset) & EMU3_I_ID_OFFSET_MASK)) + EMU3_I_ID_OFFSET)
 #define EMU3_I_ID_GET_BLKNUM(id) ((id) >> EMU3_I_ID_OFFSET_SIZE)
 #define EMU3_I_ID_GET_OFFSET(id) ((id) & EMU3_I_ID_OFFSET_MASK)
 
@@ -56,8 +59,6 @@
 //For devices, this should be 102, 100 regular banks + 2 special rom files with fixed ids at 0x6b and 0x6d.
 //We use the maximum physically allowed.
 #define EMU3_MAX_FILES_PER_DIR (EMU3_ENTRIES_PER_BLOCK * EMU3_BLOCKS_PER_DIR)
-
-#define EMU3_ROOT_DIR_I_ID 1	//Any value is valid as long as is lower than the first inode ID.
 
 #define EMU3_FTYPE_DEL 0x00	//Deleted file
 #define EMU3_FTYPE_STD 0x81
@@ -110,6 +111,7 @@ struct emu3_sb_info {
 	unsigned int clusters;
 	short *cluster_list;
 	bool *dir_content_block_list;
+	unsigned long *i_maps;
 	struct mutex lock;
 };
 
@@ -188,3 +190,5 @@ void emu3_init_once(void *);
 
 struct emu3_dentry *emu3_find_dentry_by_inode(struct inode *,
 					      struct buffer_head **);
+
+unsigned long emu3_get_or_add_i_map(struct emu3_sb_info *, unsigned long);
