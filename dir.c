@@ -710,27 +710,12 @@ static int emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
 	if (flags & ~RENAME_NOREPLACE)
 		return -EINVAL;
 
-	// As inode numbers are addresses, we can not move a file to another directory and keep the original inode number.
-	if (old_dir != new_dir)
-		return -EPERM;
-
 	mutex_lock(&info->lock);
-
-	old_e3d = emu3_find_dentry_by_name(old_dir, old_dentry, &old_b, NULL);
-	if (!old_e3d) {
-		err = -ENOENT;
-		goto end;
-	}
-
-	emu3_set_dentry_name(old_e3d, &new_dentry->d_name);
-	mark_buffer_dirty_inode(old_b, old_dir);
-	old_dir->i_mtime = current_time(old_dir);
-	mark_inode_dirty(old_dir);
 
 	if (new_dentry->d_inode) {
 		if (flags & RENAME_NOREPLACE) {
 			err = -EEXIST;
-			goto end;
+			goto cleanup;
 		}
 
 		new_e3d =
@@ -748,10 +733,26 @@ static int emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
 		emu3_clear_cluster_list(new_dentry->d_inode);
 		inode_dec_link_count(new_dentry->d_inode);
 		d_delete(new_dentry);
+		brelse(new_b);
 	}
 
-	brelse(old_b);
+	old_e3d = emu3_find_dentry_by_name(old_dir, old_dentry, &old_b, NULL);
+	if (!old_e3d) {
+		err = -ENOENT;
+		goto end;
+	}
 
+	if (old_dir == new_dir) {
+		emu3_set_dentry_name(old_e3d, &new_dentry->d_name);
+		mark_buffer_dirty_inode(old_b, old_dir);
+		old_dir->i_mtime = current_time(old_dir);
+		mark_inode_dirty(old_dir);
+	} else {
+		err = -EPERM;
+	}
+
+ cleanup:
+	brelse(old_b);
  end:
 	mutex_unlock(&info->lock);
 	return err;

@@ -46,11 +46,13 @@ sudo losetup /dev/loop0 image.iso
 
 echo "Mounting image as emu3..."
 sudo mount -t emu3 /dev/loop0 $EMU3_MOUNTPOINT
+test .
 sudo umount $EMU3_MOUNTPOINT
+test
 
 echo "Mounting image as emu4..."
 sudo mount -t emu4 /dev/loop0 $EMU3_MOUNTPOINT
-
+test .
 logAndRun mkdir $EMU3_MOUNTPOINT/foo
 test .
 
