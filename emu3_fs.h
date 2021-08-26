@@ -188,7 +188,3 @@ void emu3_init_once(void *);
 
 struct emu3_dentry *emu3_find_dentry_by_inode(struct inode *,
 					      struct buffer_head **);
-
-struct emu3_dentry *emu3_find_dentry_by_ino(unsigned long,
-					    struct super_block *,
-					    struct buffer_head **);

@@ -32,26 +32,19 @@ void emu3_init_once(void *foo)
 	inode_init_once(&e3i->vfs_inode);
 }
 
-struct emu3_dentry *emu3_find_dentry_by_ino(unsigned long ino,
-					    struct super_block *sb,
-					    struct buffer_head **b)
+struct emu3_dentry *emu3_find_dentry_by_inode(struct inode *inode,
+					      struct buffer_head **b)
 {
-	unsigned int blknum = EMU3_I_ID_GET_BLKNUM(ino);
-	unsigned int offset = EMU3_I_ID_GET_OFFSET(ino);
+	unsigned int blknum = EMU3_I_ID_GET_BLKNUM(inode->i_ino);
+	unsigned int offset = EMU3_I_ID_GET_OFFSET(inode->i_ino);
 	struct emu3_dentry *e3d;
 
-	*b = sb_bread(sb, blknum);
+	*b = sb_bread(inode->i_sb, blknum);
 
 	e3d = (struct emu3_dentry *)(*b)->b_data;
 	e3d += offset;
 
 	return e3d;
-}
-
-struct emu3_dentry *emu3_find_dentry_by_inode(struct inode *inode,
-					      struct buffer_head **b)
-{
-	return emu3_find_dentry_by_ino(inode->i_ino, inode->i_sb, b);
 }
 
 static unsigned int emu3_dir_block_count(struct emu3_dentry *e3d,
