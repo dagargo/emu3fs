@@ -238,14 +238,14 @@ int emu3_expand_cluster_list(struct inode *inode, sector_t block)
 	struct emu3_inode *e3i = EMU3_I(inode);
 	int cluster = ((int)block) / info->blocks_per_cluster;
 	short next = e3i->start_cluster;
-	int i = 0;
+	int new, i = 0;
 
 	while (le16_to_cpu(info->cluster_list[next]) != EMU_LAST_FILE_CLUSTER) {
 		next = le16_to_cpu(info->cluster_list[next]);
 		i++;
 	}
 	while (i < cluster) {
-		int new = emu3_next_free_cluster(info);
+		new = emu3_next_free_cluster(info);
 		if (new < 0)
 			return -ENOSPC;
 		info->cluster_list[next] = cpu_to_le16(new);
@@ -544,7 +544,8 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent,
 					       "%s: block %d marked as used by dir %.16s\n",
 					       EMU3_MODULE_NAME, *block,
 					       e3d->name);
-					continue;
+					err = -EIO;
+					goto out5;
 				}
 
 				info->dir_content_block_list[index] = 1;
