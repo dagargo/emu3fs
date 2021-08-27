@@ -9,7 +9,7 @@ fi
 
 function cleanUp() {
         echo "Cleaning up..."
-        sudo umount $EMU3_MOUNTPOINT
+        sudo umount -f $EMU3_MOUNTPOINT
         sudo losetup -d /dev/loop0
         rm image.iso
 }
@@ -54,6 +54,11 @@ sudo losetup /dev/loop0 image.iso
 echo "Mounting image as emu3..."
 sudo mount -t emu3 /dev/loop0 $EMU3_MOUNTPOINT
 test .
+logAndRun mkdir $EMU3_MOUNTPOINT/foo
+testError .
+echo "123" > $EMU3_MOUNTPOINT/t1
+logAndRun cat $EMU3_MOUNTPOINT/t1
+test .
 sudo umount $EMU3_MOUNTPOINT
 test
 
@@ -64,17 +69,16 @@ logAndRun mkdir $EMU3_MOUNTPOINT/foo
 test .
 
 logAndRun mkdir $EMU3_MOUNTPOINT/foo
-testError
+testError .
 
 logAndRun rmdir $EMU3_MOUNTPOINT/foo
 test .
 
 logAndRun mkdir $EMU3_MOUNTPOINT/foo
-test
+test .
 
 echo "123" > $EMU3_MOUNTPOINT/foo/t1
 test
-
 logAndRun cat $EMU3_MOUNTPOINT/foo/t1
 echo "4567" >> $EMU3_MOUNTPOINT/foo/t1
 test
@@ -83,10 +87,18 @@ logAndRun cat $EMU3_MOUNTPOINT/foo/t1
 test foo/t1
 
 logAndRun cp $EMU3_MOUNTPOINT/foo/t1 $EMU3_MOUNTPOINT/foo/t3
-test foo/t3
+test
+logAndRun ls -l $EMU3_MOUNTPOINT/foo/t1
+test
+logAndRun ls -l $EMU3_MOUNTPOINT/foo/t3
+test
 
 logAndRun mv $EMU3_MOUNTPOINT/foo/t3 $EMU3_MOUNTPOINT/foo/t2
-test foo/t2
+test foo
+logAndRun ls -l $EMU3_MOUNTPOINT/foo/t3
+testError
+logAndRun ls -l $EMU3_MOUNTPOINT/foo/t2
+test
 
 [ "$(< $EMU3_MOUNTPOINT/foo/t1)" == "$(< $EMU3_MOUNTPOINT/foo/t2)" ]
 test
@@ -160,6 +172,20 @@ test
 echo "12345" > $EMU3_MOUNTPOINT/d1/t1
 logAndRun cat $EMU3_MOUNTPOINT/d1/t1
 test d1
+
+# Testing full dir
+
+logAndRun mkdir $EMU3_MOUNTPOINT/full
+test full
+for i in $(seq 1 112); do
+        name=f-${i}
+        logAndRun touch $EMU3_MOUNTPOINT/full/$name
+        test full/$name
+done
+logAndRun touch $EMU3_MOUNTPOINT/full/error
+testError full
+
+# Testing renaming
 
 logAndRun mv $EMU3_MOUNTPOINT/d1/t1 $EMU3_MOUNTPOINT/d1/t2
 test d1
