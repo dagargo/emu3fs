@@ -43,10 +43,8 @@
 #define EMU3_DNUM_OFFSET_SIZE 4
 #define EMU3_DNUM_OFFSET_MASK ((1 << EMU3_DNUM_OFFSET_SIZE) - 1)
 #define EMU3_DNUM(blknum, offset) ((unsigned int)((blknum) << EMU3_DNUM_OFFSET_SIZE) | ((offset) & EMU3_DNUM_OFFSET_MASK))
-#define EMU3_DNUM_GET_BLKNUM(id) ((id) >> EMU3_DNUM_OFFSET_SIZE)
-#define EMU3_DNUM_GET_OFFSET(id) ((id) & EMU3_DNUM_OFFSET_MASK)
-
-#define EMU3_MAX_REGULAR_FILE 100
+#define EMU3_DNUM_BLKNUM(dnum) ((dnum) >> EMU3_DNUM_OFFSET_SIZE)
+#define EMU3_DNUM_OFFSET(dnum) ((dnum) & EMU3_DNUM_OFFSET_MASK)
 
 #define EMU_LAST_FILE_CLUSTER ((short)0x7fff)
 
@@ -61,6 +59,7 @@
 //For devices, this should be 102, 100 regular banks + 2 special rom files with fixed ids at 0x6b and 0x6d.
 //We use the maximum physically allowed.
 #define EMU3_MAX_FILES_PER_DIR (EMU3_ENTRIES_PER_BLOCK * EMU3_BLOCKS_PER_DIR)
+#define EMU3_MAX_REGULAR_FILE 100	//Not used
 
 #define EMU3_FTYPE_DEL 0x00	//Deleted file
 #define EMU3_FTYPE_STD 0x81
