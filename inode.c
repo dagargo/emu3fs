@@ -33,13 +33,13 @@ void emu3_init_once(void *foo)
 }
 
 inline void emu3_set_i_map(struct emu3_sb_info *info,
-			   struct inode *inode, unsigned long address)
+			   struct inode *inode, unsigned int d_num)
 {
-	info->i_maps[inode->i_ino - EMU3_I_ID_OFFSET] = address;
+	info->i_maps[inode->i_ino - EMU3_I_ID_OFFSET] = d_num;
 }
 
-inline unsigned long emu3_get_i_map(struct emu3_sb_info *info,
-				    struct inode *inode)
+inline unsigned int emu3_get_i_map(struct emu3_sb_info *info,
+				   struct inode *inode)
 {
 	return info->i_maps[inode->i_ino - EMU3_I_ID_OFFSET];
 }
@@ -50,18 +50,18 @@ inline void emu3_clear_i_map(struct emu3_sb_info *info, struct inode *inode)
 }
 
 unsigned long emu3_get_or_add_i_map(struct emu3_sb_info *info,
-				    unsigned long ino)
+				    unsigned int d_num)
 {
 	int i, pos;
 	bool found;
-	unsigned long *empty;
-	unsigned long *v;
+	unsigned int *empty;
+	unsigned int *v;
 
 	empty = NULL;
 	found = 0;
 	v = info->i_maps;
 	for (i = 0; i < EMU3_TOTAL_ENTRIES(info); i++, v++) {
-		if ((*v) == ino) {
+		if ((*v) == d_num) {
 			found = 1;
 			break;
 		}
@@ -73,7 +73,7 @@ unsigned long emu3_get_or_add_i_map(struct emu3_sb_info *info,
 	}
 
 	if (!found)
-		*empty = ino;
+		*empty = d_num;
 
 	return (found ? i : pos) + EMU3_I_ID_OFFSET;
 }

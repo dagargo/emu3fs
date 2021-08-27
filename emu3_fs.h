@@ -42,7 +42,7 @@
 
 #define EMU3_I_ID_OFFSET_SIZE 4
 #define EMU3_I_ID_OFFSET_MASK ((1 << EMU3_I_ID_OFFSET_SIZE) - 1)
-#define EMU3_I_ID(blknum, offset) (((blknum) << EMU3_I_ID_OFFSET_SIZE) | ((offset) & EMU3_I_ID_OFFSET_MASK))
+#define EMU3_I_ID(blknum, offset) ((unsigned int)((blknum) << EMU3_I_ID_OFFSET_SIZE) | ((offset) & EMU3_I_ID_OFFSET_MASK))
 #define EMU3_I_ID_GET_BLKNUM(id) ((id) >> EMU3_I_ID_OFFSET_SIZE)
 #define EMU3_I_ID_GET_OFFSET(id) ((id) & EMU3_I_ID_OFFSET_MASK)
 
@@ -113,7 +113,7 @@ struct emu3_sb_info {
 	unsigned int clusters;
 	short *cluster_list;
 	bool *dir_content_block_list;
-	unsigned long *i_maps;
+	unsigned int *i_maps;
 	struct mutex lock;
 };
 
@@ -193,10 +193,10 @@ void emu3_init_once(void *);
 struct emu3_dentry *emu3_find_dentry_by_inode(struct inode *,
 					      struct buffer_head **);
 
-unsigned long emu3_get_or_add_i_map(struct emu3_sb_info *, unsigned long);
+unsigned long emu3_get_or_add_i_map(struct emu3_sb_info *, unsigned int);
 
-unsigned long emu3_get_i_map(struct emu3_sb_info *, struct inode *);
+unsigned int emu3_get_i_map(struct emu3_sb_info *, struct inode *);
 
 void emu3_clear_i_map(struct emu3_sb_info *, struct inode *);
 
-void emu3_set_i_map(struct emu3_sb_info *, struct inode *, unsigned long);
+void emu3_set_i_map(struct emu3_sb_info *, struct inode *, unsigned int);

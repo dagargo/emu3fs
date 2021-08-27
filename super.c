@@ -488,7 +488,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent,
 	}
 	memset(info->dir_content_block_list, 0, size);
 
-	size = sizeof(unsigned long) * EMU3_TOTAL_ENTRIES(info);
+	size = sizeof(unsigned int) * EMU3_TOTAL_ENTRIES(info);
 	info->i_maps = kzalloc(size, GFP_KERNEL);
 	if (!info->i_maps) {
 		err = -ENOMEM;
