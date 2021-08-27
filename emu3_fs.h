@@ -33,18 +33,18 @@
 #define EMU3_BSIZE 0x200
 #define EMU3_CLUSTER_ENTRIES_PER_BLOCK  (EMU3_BSIZE >> 1)
 
-#define EMU3_ROOT_DIR_I_ID 1	//Any value is valid as long as is lower than the first inode ID.
-#define EMU3_I_ID_OFFSET   8
+#define EMU3_I_ID_ROOT_DIR     1	//Any value is valid as long as is lower than the first inode ID.
+#define EMU3_I_ID_MAP_OFFSET   2	//As inodes are mapped to emu3 dentries in an array, we need to add an offset greater than EMU3_ROOT_DIR_I_ID.
 
 #define EMU3_SB(sb) ((struct emu3_sb_info *)(sb)->s_fs_info)
 
 #define EMU3_I(inode) ((struct emu3_inode *)container_of((inode), struct emu3_inode, vfs_inode))
 
-#define EMU3_I_ID_OFFSET_SIZE 4
-#define EMU3_I_ID_OFFSET_MASK ((1 << EMU3_I_ID_OFFSET_SIZE) - 1)
-#define EMU3_I_ID(blknum, offset) ((unsigned int)((blknum) << EMU3_I_ID_OFFSET_SIZE) | ((offset) & EMU3_I_ID_OFFSET_MASK))
-#define EMU3_I_ID_GET_BLKNUM(id) ((id) >> EMU3_I_ID_OFFSET_SIZE)
-#define EMU3_I_ID_GET_OFFSET(id) ((id) & EMU3_I_ID_OFFSET_MASK)
+#define EMU3_DNUM_OFFSET_SIZE 4
+#define EMU3_DNUM_OFFSET_MASK ((1 << EMU3_DNUM_OFFSET_SIZE) - 1)
+#define EMU3_DNUM(blknum, offset) ((unsigned int)((blknum) << EMU3_DNUM_OFFSET_SIZE) | ((offset) & EMU3_DNUM_OFFSET_MASK))
+#define EMU3_DNUM_GET_BLKNUM(id) ((id) >> EMU3_DNUM_OFFSET_SIZE)
+#define EMU3_DNUM_GET_OFFSET(id) ((id) & EMU3_DNUM_OFFSET_MASK)
 
 #define EMU3_MAX_REGULAR_FILE 100
 
@@ -70,10 +70,10 @@
 #define EMU3_DTYPE_1 0x40
 #define EMU3_DTYPE_2 0x80
 
-#define EMU3_IS_I_ROOT_DIR(inode) ((inode)->i_ino == EMU3_ROOT_DIR_I_ID)
+#define EMU3_IS_I_ROOT_DIR(inode) ((inode)->i_ino == EMU3_I_ID_ROOT_DIR)
 
-#define EMU3_IS_I_REG_DIR(dir, info) (((emu3_get_i_map(info, dir)) >= EMU3_I_ID((info)->start_root_block, 0)) && \
- 		                     ((emu3_get_i_map(info, dir)) <  EMU3_I_ID((info)->start_dir_content_block, 0)))
+#define EMU3_IS_I_REG_DIR(dir, info) (((emu3_get_i_map(info, dir)) >= EMU3_DNUM((info)->start_root_block, 0)) && \
+ 		                     ((emu3_get_i_map(info, dir)) <  EMU3_DNUM((info)->start_dir_content_block, 0)))
 
 #define EMU3_DENTRY_IS_FILE(e3d) (((e3d)->id >= 0) &&                      \
                                   ((e3d)->id < EMU3_MAX_FILES_PER_DIR) &&  \

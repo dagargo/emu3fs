@@ -502,7 +502,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent,
 		root_ino = 1;
 	else
 		root_ino =
-		    emu3_get_or_add_i_map(info, EMU3_I_ID
+		    emu3_get_or_add_i_map(info, EMU3_DNUM
 					  (info->start_root_block, 0));
 	inode = emu3_get_inode(sb, root_ino);
 	if (!inode) {

@@ -35,18 +35,18 @@ void emu3_init_once(void *foo)
 inline void emu3_set_i_map(struct emu3_sb_info *info,
 			   struct inode *inode, unsigned int d_num)
 {
-	info->i_maps[inode->i_ino - EMU3_I_ID_OFFSET] = d_num;
+	info->i_maps[inode->i_ino - EMU3_I_ID_MAP_OFFSET] = d_num;
 }
 
 inline unsigned int emu3_get_i_map(struct emu3_sb_info *info,
 				   struct inode *inode)
 {
-	return info->i_maps[inode->i_ino - EMU3_I_ID_OFFSET];
+	return info->i_maps[inode->i_ino - EMU3_I_ID_MAP_OFFSET];
 }
 
 inline void emu3_clear_i_map(struct emu3_sb_info *info, struct inode *inode)
 {
-	info->i_maps[inode->i_ino - EMU3_I_ID_OFFSET] = 0;
+	info->i_maps[inode->i_ino - EMU3_I_ID_MAP_OFFSET] = 0;
 }
 
 unsigned long emu3_get_or_add_i_map(struct emu3_sb_info *info,
@@ -75,7 +75,7 @@ unsigned long emu3_get_or_add_i_map(struct emu3_sb_info *info,
 	if (!found)
 		*empty = d_num;
 
-	return (found ? i : pos) + EMU3_I_ID_OFFSET;
+	return (found ? i : pos) + EMU3_I_ID_MAP_OFFSET;
 }
 
 struct emu3_dentry *emu3_find_dentry_by_inode(struct inode *inode,
@@ -84,8 +84,8 @@ struct emu3_dentry *emu3_find_dentry_by_inode(struct inode *inode,
 	struct emu3_dentry *e3d;
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
 	unsigned long mapped = emu3_get_i_map(info, inode);
-	unsigned long blknum = EMU3_I_ID_GET_BLKNUM(mapped);
-	unsigned long offset = EMU3_I_ID_GET_OFFSET(mapped);
+	unsigned long blknum = EMU3_DNUM_GET_BLKNUM(mapped);
+	unsigned long offset = EMU3_DNUM_GET_OFFSET(mapped);
 
 	*b = sb_bread(inode->i_sb, blknum);
 

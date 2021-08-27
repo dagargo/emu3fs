@@ -81,7 +81,7 @@ static struct emu3_dentry *emu3_find_dentry_by_name_in_blk(struct inode *dir, st
 
 		if (!emu3_strncmp(dentry, e3d)) {
 			if (dnum)
-				*dnum = EMU3_I_ID(blknum, i);
+				*dnum = EMU3_DNUM(blknum, i);
 			return e3d;
 		}
 
@@ -154,7 +154,7 @@ static int emu3_emit(struct dir_context *ctx,
 
 	emu3_filename_fix(e3d->name, fixed);
 	len = emu3_filename_length(fixed);
-	ino = emu3_get_or_add_i_map(info, EMU3_I_ID(blknum, offset));
+	ino = emu3_get_or_add_i_map(info, EMU3_DNUM(blknum, offset));
 	ctx->pos++;
 	return dir_emit(ctx, fixed, len, ino, type);
 }
@@ -373,7 +373,7 @@ static struct emu3_dentry *emu3_find_empty_file_dentry(struct inode *dir,
 		e3d = (struct emu3_dentry *)(*b)->b_data;
 		for (j = 0; j < EMU3_ENTRIES_PER_BLOCK; j++, e3d++) {
 			if (!EMU3_DENTRY_IS_FILE(e3d)) {
-				*dnum = EMU3_I_ID(blknum, j);
+				*dnum = EMU3_DNUM(blknum, j);
 				goto add_id;
 			}
 		}
@@ -396,7 +396,7 @@ static struct emu3_dentry *emu3_find_empty_file_dentry(struct inode *dir,
 			mark_buffer_dirty_inode(db, dir);
 
 			*b = sb_bread(dir->i_sb, blknum);
-			*dnum = EMU3_I_ID(blknum, 0);
+			*dnum = EMU3_DNUM(blknum, 0);
 
 			e3d = (struct emu3_dentry *)(*b)->b_data;
 
@@ -576,7 +576,7 @@ static struct emu3_dentry *emu3_find_empty_dir_dentry(struct super_block *sb,
 		for (j = 0; j < EMU3_ENTRIES_PER_BLOCK; j++, e3d++) {
 			if (!EMU3_DENTRY_IS_DIR(e3d)) {
 				*dnum =
-				    EMU3_I_ID(info->start_root_block + i, j);
+				    EMU3_DNUM(info->start_root_block + i, j);
 				return e3d;
 			}
 		}
