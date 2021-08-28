@@ -25,13 +25,6 @@
 
 extern struct kmem_cache *emu3_inode_cachep;
 
-void emu3_init_once(void *foo)
-{
-	struct emu3_inode *e3i = foo;
-
-	inode_init_once(&e3i->vfs_inode);
-}
-
 inline void emu3_set_i_map(struct emu3_sb_info *info,
 			   struct inode *inode, unsigned int dnum)
 {

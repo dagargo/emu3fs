@@ -119,6 +119,12 @@ static bool emu3_fix_first_dir_blocks(struct emu3_dentry *e3d,
 	return 1;
 }
 
+static void emu3_init_once(void *foo)
+{
+	struct emu3_inode *e3i = foo;
+	inode_init_once(&e3i->vfs_inode);
+}
+
 static int init_inodecache(void)
 {
 	emu3_inode_cachep = kmem_cache_create("emu3_inode_cache",

@@ -156,28 +156,16 @@ extern const struct address_space_operations emu3_aops;
 
 struct inode *emu3_get_inode(struct super_block *, unsigned long);
 
-inline void get_emu3_fulldentry(char *, struct emu3_dentry *);
-
-struct emu3_dentry *emu3_find_empty_dentry(struct super_block *,
-					   struct buffer_head **);
-
-inline unsigned int emu3_get_start_block(struct emu3_inode *,
-					 struct emu3_sb_info *);
-
 void emu3_get_file_geom(struct inode *, unsigned short *, unsigned short *,
 			unsigned short *);
 
 void emu3_write_cluster_list(struct super_block *);
-
-void emu3_read_cluster_list(struct super_block *);
 
 int emu3_expand_cluster_list(struct inode *, sector_t);
 
 int emu3_next_free_cluster(struct emu3_sb_info *);
 
 void emu3_init_cluster_list(struct inode *);
-
-void emu3_update_cluster_list(struct inode *);
 
 int emu3_get_cluster(struct inode *, int);
 
@@ -186,8 +174,6 @@ void emu3_update_cluster_list(struct inode *);
 void emu3_clear_cluster_list(struct inode *);
 
 sector_t emu3_get_phys_block(struct inode *, sector_t);
-
-void emu3_init_once(void *);
 
 struct emu3_dentry *emu3_find_dentry_by_inode(struct inode *,
 					      struct buffer_head **);
