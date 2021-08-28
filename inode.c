@@ -23,8 +23,6 @@
 
 #include "emu3_fs.h"
 
-extern struct kmem_cache *emu3_inode_cachep;
-
 inline void emu3_inode_set_data(struct inode *inode, struct emu3_dentry *e3d)
 {
 	struct emu3_inode *e3i = EMU3_I(inode);
