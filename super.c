@@ -65,7 +65,6 @@ static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
 	struct emu3_dentry *e3d;
-	struct emu3_inode *e3i;
 	struct buffer_head *bh;
 	int err = 0;
 
@@ -83,9 +82,6 @@ static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 	emu3_update_cluster_list(inode);
 
 	emu3_set_file_size(inode, &e3d->data.fattrs);
-
-	e3i = EMU3_I(inode);
-	e3d->data.fattrs.start_cluster = cpu_to_le16(e3i->start_cluster);
 
 	mark_buffer_dirty(bh);
 	if (wbc->sync_mode == WB_SYNC_ALL) {
