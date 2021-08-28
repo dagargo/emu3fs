@@ -112,10 +112,14 @@ test
 head -c 32M </dev/urandom > t3
 
 logAndRun cp t3 $EMU3_MOUNTPOINT/foo
-test foo/t2
+test
+logAndRun ls -l $EMU3_MOUNTPOINT/foo/t3
+test
 
 logAndRun cp t3 $EMU3_MOUNTPOINT/foo/t4
-test foo/t2
+test
+logAndRun ls -l $EMU3_MOUNTPOINT/foo/t4
+test
 
 echo "Remounting..."
 logAndRun sudo umount $EMU3_MOUNTPOINT
