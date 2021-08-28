@@ -189,3 +189,5 @@ unsigned int emu3_get_i_map(struct emu3_sb_info *, struct inode *);
 void emu3_clear_i_map(struct emu3_sb_info *, struct inode *);
 
 void emu3_set_i_map(struct emu3_sb_info *, struct inode *, unsigned int);
+
+void emu3_inode_set_data(struct inode *, struct emu3_dentry *);

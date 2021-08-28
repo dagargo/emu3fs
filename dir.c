@@ -391,6 +391,7 @@ static int emu3_find_empty_file_dentry(struct inode *dir,
 			blknum = info->start_dir_content_block + j;
 			e3d_dir->data.dattrs.block_list[i] =
 			    cpu_to_le16(blknum);
+			emu3_inode_set_data(dir, e3d_dir);
 			mark_buffer_dirty_inode(db, dir);
 
 			*b = sb_bread(dir->i_sb, blknum);
@@ -469,7 +470,6 @@ static int emu3_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	int err;
 	unsigned int dnum;
 	struct inode *inode;
-	struct emu3_inode *e3i;
 	struct buffer_head *b;
 	struct emu3_dentry *e3d;
 	struct super_block *sb = dir->i_sb;
@@ -504,8 +504,7 @@ static int emu3_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	inode->i_ino = emu3_get_or_add_i_map(info, dnum);
 	inode->i_size = 0;
 
-	e3i = EMU3_I(inode);
-	memcpy(&e3i->data, &e3d->data, sizeof(struct emu3_dentry_data));
+	emu3_inode_set_data(inode, e3d);
 	brelse(b);
 
 	emu3_init_cluster_list(inode);
@@ -702,7 +701,7 @@ static int emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
 			}
 		} else
 			printk(KERN_WARNING
-			       "%s: No entry found. As it was meant to be deleted we can continue safely.\n",
+			       "%s: No entry found. As it was meant to be deleted, we can continue safely.\n",
 			       EMU3_MODULE_NAME);
 
 		brelse(new_b);
@@ -739,6 +738,8 @@ static int emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
 			memcpy(new_e3d, old_e3d, sizeof(struct emu3_dentry));
 			new_e3d->data.id = id;
 
+			emu3_inode_set_data(old_dentry->d_inode, new_e3d);
+
 			new_dir->i_mtime = current_time(new_dir);
 			mark_buffer_dirty_inode(new_b, new_dir);
 
@@ -764,7 +765,6 @@ static int emu3_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	unsigned int dnum;
 	struct inode *inode;
 	struct buffer_head *b;
-	struct emu3_inode *e3i;
 	struct emu3_dentry *e3d;
 	struct super_block *sb = dir->i_sb;
 	struct emu3_sb_info *info = EMU3_SB(sb);
@@ -794,8 +794,7 @@ static int emu3_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	inode->i_size = EMU3_BSIZE;
 	inode->i_mtime = inode->i_atime = inode->i_ctime = current_time(inode);
 
-	e3i = EMU3_I(inode);
-	memcpy(&e3i->data, &e3d->data, sizeof(struct emu3_dentry_data));
+	emu3_inode_set_data(inode, e3d);
 	brelse(b);
 
 	insert_inode_hash(inode);

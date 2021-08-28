@@ -25,6 +25,12 @@
 
 extern struct kmem_cache *emu3_inode_cachep;
 
+inline void emu3_inode_set_data(struct inode *inode, struct emu3_dentry *e3d)
+{
+	struct emu3_inode *e3i = EMU3_I(inode);
+	memcpy(&e3i->data, &e3d->data, sizeof(struct emu3_dentry_data));
+}
+
 inline void emu3_set_i_map(struct emu3_sb_info *info,
 			   struct inode *inode, unsigned int dnum)
 {
@@ -113,8 +119,8 @@ static unsigned int emu3_file_block_count(unsigned long id,
 	unsigned int blocks = cpu_to_le16(e3d->data.fattrs.blocks);
 
 	if (blocks > sb->blocks_per_cluster) {
-		printk(KERN_ERR "%s: wrong EOF in file with id 0x%016lx\n",
-		       EMU3_MODULE_NAME, id);
+		printk(KERN_ERR "%s: Bad data in inode %ld\n", EMU3_MODULE_NAME,
+		       id);
 		return -1;
 	}
 	*bsize = (clusters * sb->blocks_per_cluster) + blocks;
@@ -134,7 +140,6 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 	unsigned int links;
 	struct inode *inode;
 	struct emu3_dentry *e3d;
-	struct emu3_inode *e3i;
 	struct buffer_head *b;
 	const struct inode_operations *iops;
 	const struct file_operations *fops;
@@ -183,8 +188,7 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 			brelse(b);
 			return ERR_PTR(-EIO);
 		}
-		e3i = EMU3_I(inode);
-		memcpy(&e3i->data, &e3d->data, sizeof(struct emu3_dentry_data));
+		emu3_inode_set_data(inode, e3d);
 		brelse(b);
 	}
 

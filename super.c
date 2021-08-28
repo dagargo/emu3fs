@@ -25,8 +25,8 @@
 
 static struct kmem_cache *emu3_inode_cachep;
 
-static void emu3_set_file_size(struct inode *inode,
-			       struct emu3_file_attrs *fattrs)
+static void emu3_set_inode_size(struct inode *inode,
+				struct emu3_file_attrs *fattrs)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
 	int bytes_per_cluster = info->blocks_per_cluster * EMU3_BSIZE;
@@ -81,7 +81,8 @@ static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 
 	emu3_update_cluster_list(inode);
 
-	emu3_set_file_size(inode, &e3d->data.fattrs);
+	emu3_set_inode_size(inode, &e3d->data.fattrs);
+	emu3_inode_set_data(inode, e3d);
 
 	mark_buffer_dirty(bh);
 	if (wbc->sync_mode == WB_SYNC_ALL) {
