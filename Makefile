@@ -1,18 +1,19 @@
-obj-m += emu3_fs.o
-emu3_fs-objs := super.o inode.o file.o dir.o
-MOD_PATH := /lib/modules/$(shell uname -r)/build
+ifneq ($(KERNELRELEASE),)
+include Kbuild
+
+else
+KDIR ?= /lib/modules/`uname -r`/build
 
 all:
-	make -C $(MOD_PATH) M=$(PWD) modules
+	$(MAKE) -C $(KDIR) M=$$PWD
 
 clean:
-	make -C $(MOD_PATH) M=$(PWD) clean
+	$(MAKE) -C $(KDIR) M=$$PWD clean
 	rm -rf *~
 
 format:
 	indent -linux *.[ch]
 
 install:
-	make -C $(MOD_PATH) M=$(shell pwd) modules_install
-	depmod -a
-
+	$(MAKE) -C $(KDIR) M=$$PWD modules_install
+endif
