@@ -39,6 +39,7 @@
 #define EMU3_SB(sb) ((struct emu3_sb_info *)(sb)->s_fs_info)
 
 #define EMU3_I(inode) ((struct emu3_inode *)container_of((inode), struct emu3_inode, vfs_inode))
+#define EMU3_I_START_CLUSTER(inode) (le16_to_cpu(EMU3_I(inode)->data.fattrs.start_cluster))
 
 #define EMU3_DNUM_OFFSET_SIZE 4
 #define EMU3_DNUM_OFFSET_MASK ((1 << EMU3_DNUM_OFFSET_SIZE) - 1)
@@ -99,6 +100,8 @@
 #define EMU3_FREE_DIR_BLOCK (-1)
 #define EMU3_IS_DIR_BLOCK_FREE(block) ((block) == EMU3_FREE_DIR_BLOCK)
 
+#define EMU3_FILE_PROPS_LEN 5
+
 struct emu3_sb_info {
 	unsigned int blocks;
 	unsigned int start_root_block;
@@ -122,7 +125,7 @@ struct emu3_file_attrs {
 	unsigned short blocks;
 	unsigned short bytes;
 	unsigned char type;
-	unsigned char props[5];
+	unsigned char props[EMU3_FILE_PROPS_LEN];
 };
 
 struct emu3_dir_attrs {
@@ -145,7 +148,7 @@ struct emu3_dentry {
 
 struct emu3_inode {
 	struct inode vfs_inode;
-	short start_cluster;
+	struct emu3_dentry_data data;
 };
 
 extern const struct file_operations emu3_file_operations_dir;

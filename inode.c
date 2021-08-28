@@ -168,10 +168,6 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 			fops = &emu3_file_operations_file;
 			links = 1;
 			mode = EMU3_FILE_MODE;
-
-			e3i = EMU3_I(inode);
-			e3i->start_cluster =
-			    le16_to_cpu(e3d->data.fattrs.start_cluster);
 			inode->i_mapping->a_ops = &emu3_aops;
 		} else if (EMU3_DENTRY_IS_DIR(e3d)) {
 			file_block_size = emu3_dir_block_count(e3d, info);
@@ -187,6 +183,8 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 			brelse(b);
 			return ERR_PTR(-EIO);
 		}
+		e3i = EMU3_I(inode);
+		memcpy(&e3i->data, &e3d->data, sizeof(struct emu3_dentry_data));
 		brelse(b);
 	}
 

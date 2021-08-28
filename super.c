@@ -250,9 +250,8 @@ static void emu3_put_super(struct super_block *sb)
 int emu3_expand_cluster_list(struct inode *inode, sector_t block)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
-	struct emu3_inode *e3i = EMU3_I(inode);
 	int cluster = ((int)block) / info->blocks_per_cluster;
-	short next = e3i->start_cluster;
+	short next = EMU3_I_START_CLUSTER(inode);
 	int new, i = 0;
 
 	while (le16_to_cpu(info->cluster_list[next]) != EMU_LAST_FILE_CLUSTER) {
@@ -275,8 +274,7 @@ int emu3_expand_cluster_list(struct inode *inode, sector_t block)
 int emu3_get_cluster(struct inode *inode, int n)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
-	struct emu3_inode *e3i = EMU3_I(inode);
-	short next = e3i->start_cluster;
+	short next = EMU3_I_START_CLUSTER(inode);
 	int i = 0;
 
 	while (i < n) {
@@ -292,17 +290,15 @@ int emu3_get_cluster(struct inode *inode, int n)
 void emu3_init_cluster_list(struct inode *inode)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
-	struct emu3_inode *e3i = EMU3_I(inode);
 
-	info->cluster_list[e3i->start_cluster] =
+	info->cluster_list[EMU3_I_START_CLUSTER(inode)] =
 	    cpu_to_le16(EMU_LAST_FILE_CLUSTER);
 }
 
 void emu3_clear_cluster_list(struct inode *inode)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
-	struct emu3_inode *e3i = EMU3_I(inode);
-	short prev, next = e3i->start_cluster;
+	short prev, next = EMU3_I_START_CLUSTER(inode);
 
 	while (le16_to_cpu(info->cluster_list[next]) != EMU_LAST_FILE_CLUSTER) {
 		prev = next;
