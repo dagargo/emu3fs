@@ -639,7 +639,7 @@ static int emu3_unlink(struct inode *dir, struct dentry *dentry)
 	struct inode *inode = dentry->d_inode;
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
 
-	e3d = emu3_find_dentry_by_name(dir, dentry, &b, NULL);
+	e3d = emu3_find_dentry_by_inode(inode, &b);
 
 	if (e3d == NULL)
 		return -ENOENT;
@@ -714,7 +714,7 @@ static int emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
 		d_delete(new_dentry);
 	}
 
-	old_e3d = emu3_find_dentry_by_name(old_dir, old_dentry, &old_b, NULL);
+	old_e3d = emu3_find_dentry_by_inode(old_dentry->d_inode, &old_b);
 	if (!old_e3d) {
 		err = -ENOENT;
 		goto end;
