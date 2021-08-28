@@ -25,21 +25,18 @@
 
 static struct kmem_cache *emu3_inode_cachep;
 
-static void emu3_get_file_geom(struct inode *inode, unsigned short *clusters,
-			       unsigned short *blocks, unsigned short *bytes)
+static void emu3_set_file_size(struct inode *inode,
+			       struct emu3_file_attrs *fattrs)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
 	int bytes_per_cluster = info->blocks_per_cluster * EMU3_BSIZE;
 	unsigned int clusters_rem;
 	unsigned int size = inode->i_size;
 
-	if (clusters)
-		*clusters = (size / bytes_per_cluster) + 1;
+	fattrs->clusters = (size / bytes_per_cluster) + 1;
 	clusters_rem = size % bytes_per_cluster;
-	if (blocks)
-		*blocks = (clusters_rem / EMU3_BSIZE) + 1;
-	if (bytes)
-		*bytes = clusters_rem % EMU3_BSIZE;
+	fattrs->blocks = (clusters_rem / EMU3_BSIZE) + 1;
+	fattrs->bytes = clusters_rem % EMU3_BSIZE;
 }
 
 static struct inode *emu3_alloc_inode(struct super_block *sb)
@@ -85,11 +82,10 @@ static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 
 	emu3_update_cluster_list(inode);
 
-	emu3_get_file_geom(inode, &e3d->fattrs.clusters, &e3d->fattrs.blocks,
-			   &e3d->fattrs.bytes);
+	emu3_set_file_size(inode, &e3d->data.fattrs);
 
 	e3i = EMU3_I(inode);
-	e3d->fattrs.start_cluster = cpu_to_le16(e3i->start_cluster);
+	e3d->data.fattrs.start_cluster = cpu_to_le16(e3i->start_cluster);
 
 	mark_buffer_dirty(bh);
 	if (wbc->sync_mode == WB_SYNC_ALL) {
@@ -119,7 +115,7 @@ static bool emu3_fix_first_dir_blocks(struct emu3_dentry *e3d,
 	short old;
 	short *blknum;
 
-	blknum = e3d->dattrs.block_list;
+	blknum = e3d->data.dattrs.block_list;
 	for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++, blknum++) {
 		old = le16_to_cpu(*blknum);
 		if (EMU3_IS_DIR_BLOCK_FREE(old))
@@ -552,7 +548,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent,
 			if (!EMU3_DENTRY_IS_DIR(e3d))
 				continue;
 
-			block = e3d->dattrs.block_list;
+			block = e3d->data.dattrs.block_list;
 			for (k = 0; k < EMU3_BLOCKS_PER_DIR; k++, block++) {
 				if (EMU3_IS_DIR_BLOCK_FREE(*block))
 					continue;

@@ -74,18 +74,18 @@
 #define EMU3_IS_I_REG_DIR(dir, info) (((emu3_get_i_map(info, dir)) >= EMU3_DNUM((info)->start_root_block, 0)) && \
  		                     ((emu3_get_i_map(info, dir)) <  EMU3_DNUM((info)->start_dir_content_block, 0)))
 
-#define EMU3_DENTRY_IS_FILE(e3d) (((e3d)->id >= 0) &&                      \
-                                  ((e3d)->id < EMU3_MAX_FILES_PER_DIR) &&  \
-				  ((e3d)->fattrs.clusters > 0) &&          \
+#define EMU3_DENTRY_IS_FILE(e3d) (((e3d)->data.id >= 0) &&                      \
+                                  ((e3d)->data.id < EMU3_MAX_FILES_PER_DIR) &&  \
+				  ((e3d)->data.fattrs.clusters > 0) &&          \
                                    (				           \
-		          	   (e3d)->fattrs.type == EMU3_FTYPE_STD || \
-	                           (e3d)->fattrs.type == EMU3_FTYPE_UPD || \
-	                           (e3d)->fattrs.type == EMU3_FTYPE_SYS    \
+		          	   (e3d)->data.fattrs.type == EMU3_FTYPE_STD || \
+	                           (e3d)->data.fattrs.type == EMU3_FTYPE_UPD || \
+	                           (e3d)->data.fattrs.type == EMU3_FTYPE_SYS    \
 			           )                                       \
 	                         )
 
-#define EMU3_DENTRY_IS_DIR(e3d) (((e3d)->id == EMU3_DTYPE_1 || (e3d)->id == EMU3_DTYPE_2) && \
-                                 (le16_to_cpu((e3d)->dattrs.block_list[0]) > 0))
+#define EMU3_DENTRY_IS_DIR(e3d) (((e3d)->data.id == EMU3_DTYPE_1 || (e3d)->data.id == EMU3_DTYPE_2) && \
+                                 (le16_to_cpu((e3d)->data.dattrs.block_list[0]) > 0))
 
 #define EMU3_DIR_BLOCK_OK(block, info) ((block) >= info->start_dir_content_block && (block) < info->start_data_block)
 
@@ -129,14 +129,18 @@ struct emu3_dir_attrs {
 	short block_list[EMU3_BLOCKS_PER_DIR];
 };
 
-struct emu3_dentry {
-	char name[EMU3_LENGTH_FILENAME];
+struct emu3_dentry_data {
 	unsigned char unknown;
 	unsigned char id;	//This can be 0. No inode id in linux can be 0.
 	union {
 		struct emu3_file_attrs fattrs;
 		struct emu3_dir_attrs dattrs;
 	};
+};
+
+struct emu3_dentry {
+	char name[EMU3_LENGTH_FILENAME];
+	struct emu3_dentry_data data;
 };
 
 struct emu3_inode {
