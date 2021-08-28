@@ -123,25 +123,6 @@ static unsigned int emu3_file_block_count(unsigned long id,
 	return 0;
 }
 
-void
-emu3_get_file_geom(struct inode *inode,
-		   unsigned short *clusters,
-		   unsigned short *blocks, unsigned short *bytes)
-{
-	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
-	int bytes_per_cluster = info->blocks_per_cluster * EMU3_BSIZE;
-	unsigned int clusters_rem;
-	unsigned int size = inode->i_size;
-
-	if (clusters)
-		*clusters = (size / bytes_per_cluster) + 1;
-	clusters_rem = size % bytes_per_cluster;
-	if (blocks)
-		*blocks = (clusters_rem / EMU3_BSIZE) + 1;
-	if (bytes)
-		*bytes = clusters_rem % EMU3_BSIZE;
-}
-
 struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 {
 	int file_block_size;

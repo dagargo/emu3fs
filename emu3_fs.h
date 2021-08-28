@@ -156,9 +156,6 @@ extern const struct address_space_operations emu3_aops;
 
 struct inode *emu3_get_inode(struct super_block *, unsigned long);
 
-void emu3_get_file_geom(struct inode *, unsigned short *, unsigned short *,
-			unsigned short *);
-
 void emu3_write_cluster_list(struct super_block *);
 
 int emu3_expand_cluster_list(struct inode *, sector_t);
