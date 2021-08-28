@@ -20,15 +20,6 @@
 
 #include "emu3_fs.h"
 
-const struct file_operations emu3_file_operations_file = {
-	.llseek = generic_file_llseek,
-	.read_iter = generic_file_read_iter,
-	.write_iter = generic_file_write_iter,
-	.mmap = generic_file_mmap,
-	.splice_read = generic_file_splice_read,
-	.fsync = generic_file_fsync
-};
-
 static int
 emu3_get_block(struct inode *inode, sector_t block,
 	       struct buffer_head *bh_result, int create)
@@ -92,6 +83,15 @@ const struct address_space_operations emu3_aops = {
 	.write_begin = emu3_write_begin,
 	.write_end = generic_write_end,
 	.bmap = emu3_bmap,
+};
+
+const struct file_operations emu3_file_operations_file = {
+	.llseek = generic_file_llseek,
+	.read_iter = generic_file_read_iter,
+	.write_iter = generic_file_write_iter,
+	.mmap = generic_file_mmap,
+	.splice_read = generic_file_splice_read,
+	.fsync = generic_file_fsync
 };
 
 const struct inode_operations emu3_inode_operations_file;
