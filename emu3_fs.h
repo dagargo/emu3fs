@@ -33,8 +33,8 @@
 #define EMU3_BSIZE 0x200
 #define EMU3_CLUSTER_ENTRIES_PER_BLOCK  (EMU3_BSIZE >> 1)
 
-#define EMU3_I_ID_ROOT_DIR     1	//Any value is valid as long as is lower than the first inode ID.
-#define EMU3_I_ID_MAP_OFFSET   2	//As inodes are mapped to emu3 dentries in an array, we need to add an offset greater than EMU3_ROOT_DIR_I_ID.
+#define EMU3_I_ID_ROOT_DIR 1 //Any value is valid as long as is lower than the first inode ID.
+#define EMU3_I_ID_MAP_OFFSET (EMU3_I_ID_ROOT_DIR + 1) //As inodes are mapped to emu3 dentries in an array, we need to add an offset greater than EMU3_ROOT_DIR_I_ID.
 
 #define EMU3_SB(sb) ((struct emu3_sb_info *)(sb)->s_fs_info)
 
