@@ -589,7 +589,7 @@ static struct emu3_dentry *emu3_find_empty_dir_dentry(struct super_block *sb,
 }
 
 static int emu3_add_dir_dentry(struct inode *dir, struct qstr *q,
-			       unsigned int *ino, struct emu3_dentry **e3d,
+			       unsigned int *dnum, struct emu3_dentry **e3d,
 			       struct buffer_head **b)
 {
 	int i;
@@ -602,7 +602,7 @@ static int emu3_add_dir_dentry(struct inode *dir, struct qstr *q,
 	if (q->len > EMU3_LENGTH_FILENAME)
 		return -ENAMETOOLONG;
 
-	*e3d = emu3_find_empty_dir_dentry(sb, b, ino);
+	*e3d = emu3_find_empty_dir_dentry(sb, b, dnum);
 
 	if (!*e3d)
 		return -ENOSPC;
