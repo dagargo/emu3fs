@@ -182,6 +182,11 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 		brelse(b);
 	}
 
+	if (mode & S_IFDIR)
+		inode->i_opflags &= ~IOP_XATTR;
+	if (mode & S_IFREG)
+		inode->i_opflags |= IOP_XATTR;
+
 	inode->i_mode = mode;
 	inode->i_uid = current_fsuid();
 	inode->i_gid = current_fsgid();

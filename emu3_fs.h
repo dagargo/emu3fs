@@ -161,6 +161,8 @@ extern const struct inode_operations emu3_inode_operations_file;
 
 extern const struct address_space_operations emu3_aops;
 
+extern const struct xattr_handler *emu3_xattr_handlers[];
+
 struct inode *emu3_get_inode(struct super_block *, unsigned long);
 
 void emu3_write_cluster_list(struct super_block *);
@@ -191,3 +193,5 @@ void emu3_clear_i_map(struct emu3_sb_info *, struct inode *);
 void emu3_set_i_map(struct emu3_sb_info *, struct inode *, unsigned int);
 
 void emu3_inode_set_data(struct inode *, struct emu3_dentry *);
+
+ssize_t emu3_listxattr(struct dentry *, char *, size_t);

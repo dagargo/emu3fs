@@ -7,6 +7,8 @@ if [ "$EMU3_MOUNTPOINT" == "" ]; then
   exit -1
 fi
 
+LANG=C
+
 function cleanUp() {
         echo "Cleaning up..."
         sudo umount -f $EMU3_MOUNTPOINT
@@ -16,7 +18,11 @@ function cleanUp() {
 
 function logAndRun() {
         echo ">>> Running '$*'..."
-        $*
+        out=$($*)
+        err=$?
+        echo "$out"
+        echo
+        return $err
 }
 
 function testCommon() {
@@ -59,6 +65,8 @@ testError .
 echo "123" > $EMU3_MOUNTPOINT/t1
 logAndRun cat $EMU3_MOUNTPOINT/t1
 test .
+[ "123" == "$out" ]
+test
 sudo umount $EMU3_MOUNTPOINT
 test
 
@@ -80,11 +88,14 @@ test .
 echo "123" > $EMU3_MOUNTPOINT/foo/t1
 test
 logAndRun cat $EMU3_MOUNTPOINT/foo/t1
-echo "4567" >> $EMU3_MOUNTPOINT/foo/t1
+[ "123" == "$out" ]
 test
-logAndRun cat $EMU3_MOUNTPOINT/foo/t1
-[ "1234567" != "$(< $EMU3_MOUNTPOINT/foo/t1)" ]
+echo "4567" >> $EMU3_MOUNTPOINT/foo/t1
 test foo/t1
+logAndRun cat $EMU3_MOUNTPOINT/foo/t1
+test
+[ 123$'\n'4567 == "$out" ]
+test
 
 logAndRun cp $EMU3_MOUNTPOINT/foo/t1 $EMU3_MOUNTPOINT/foo/t3
 test
@@ -220,6 +231,28 @@ logAndRun ls -li $EMU3_MOUNTPOINT/d1/t1
 testError d1
 
 logAndRun mv $EMU3_MOUNTPOINT/d1 $EMU3_MOUNTPOINT/d2
+testError
+
+# Extended attributes (bank number)
+
+logAndRun getfattr -d -m ".*" $EMU3_MOUNTPOINT/d2/t2
+test
+logAndRun setfattr -n "user.bank.number" -v 111 $EMU3_MOUNTPOINT/d2/t2
+test
+logAndRun getfattr -n "user.bank.number" $EMU3_MOUNTPOINT/d2/t2
+bn=$(echo "$out" | awk -F\" '{print $2}')
+[ $bn -eq 111 ]
+test
+logAndRun setfattr -n "user.bank.number" -v 112 $EMU3_MOUNTPOINT/d2/t2
+testError
+
+logAndRun getfattr -d -m ".*" $EMU3_MOUNTPOINT/d2
+test
+[ -z "$out" ]
+test
+logAndRun getfattr -n "user.bank.number" $EMU3_MOUNTPOINT/d2
+testError
+logAndRun setfattr -n "user.bank.number" -v 0 $EMU3_MOUNTPOINT/d2
 testError
 
 cleanUp

@@ -94,4 +94,6 @@ const struct file_operations emu3_file_operations_file = {
 	.fsync = generic_file_fsync
 };
 
-const struct inode_operations emu3_inode_operations_file;
+const struct inode_operations emu3_inode_operations_file = {
+	.listxattr = emu3_listxattr
+};

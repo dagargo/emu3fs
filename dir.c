@@ -500,6 +500,7 @@ static int emu3_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	inode->i_blocks = info->blocks_per_cluster * EMU3_BSIZE;
 	inode->i_op = &emu3_inode_operations_file;
 	inode->i_fop = &emu3_file_operations_file;
+	inode->i_opflags |= IOP_XATTR;
 	inode->i_mapping->a_ops = &emu3_aops;
 	inode->i_ino = emu3_get_or_add_i_map(info, dnum);
 	inode->i_size = 0;
@@ -790,6 +791,7 @@ static int emu3_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	inode->i_blocks = 1;
 	inode->i_op = &emu3_inode_operations_dir;
 	inode->i_fop = &emu3_file_operations_dir;
+	inode->i_opflags &= ~IOP_XATTR;
 	inode->i_ino = emu3_get_or_add_i_map(info, dnum);
 	inode->i_size = EMU3_BSIZE;
 	inode->i_mtime = inode->i_atime = inode->i_ctime = current_time(inode);

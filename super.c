@@ -509,6 +509,7 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent,
 	memset(info->i_maps, 0, size);
 
 	sb->s_op = &emu3_super_operations;
+	sb->s_xattr = emu3_xattr_handlers;
 
 	if (emu4)
 		root_ino = 1;
