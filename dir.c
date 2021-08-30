@@ -62,7 +62,7 @@ static int emu3_strncmp(struct dentry *dentry, struct emu3_dentry *e3d)
 	emu3_filename_fix(e3d->name, fixed);
 	len = emu3_filename_length(e3d->name);
 	len = len > dentry->d_name.len ? len : dentry->d_name.len;
-	return strncmp(fixed, dentry->d_name.name, dentry->d_name.len);
+	return strncmp(fixed, dentry->d_name.name, len);
 }
 
 static struct emu3_dentry *emu3_find_dentry_by_name_in_blk(struct inode *dir, struct dentry
@@ -267,23 +267,30 @@ static struct dentry *emu3_lookup(struct inode *dir,
 	unsigned int dnum;
 	struct buffer_head *b;
 	struct emu3_dentry *e3d;
+	struct dentry *newent;
 	struct inode *inode = NULL;
 	struct emu3_sb_info *info = EMU3_SB(dir->i_sb);
 
 	if (dentry->d_name.len > EMU3_LENGTH_FILENAME)
 		return ERR_PTR(-ENAMETOOLONG);
 
-	e3d = emu3_find_dentry_by_name(dir, dentry, &b, &dnum);
+	mutex_lock(&info->lock);
 
+	e3d = emu3_find_dentry_by_name(dir, dentry, &b, &dnum);
 	if (e3d) {
 		brelse(b);
 		i_ino = emu3_get_or_add_i_map(info, dnum);
 		inode = emu3_get_inode(dir->i_sb, i_ino);
-		if (IS_ERR(inode))
+		if (IS_ERR(inode)) {
+			mutex_unlock(&info->lock);
 			return ERR_CAST(inode);
+		}
 	}
+	newent = d_splice_alias(inode, dentry);
 
-	return d_splice_alias(inode, dentry);
+	mutex_unlock(&info->lock);
+
+	return newent;
 }
 
 static int emu3_get_free_file_id(struct inode *dir)
