@@ -25,6 +25,23 @@
 
 static struct kmem_cache *emu3_inode_cachep;
 
+inline void emu3_free_dir_content_block(struct emu3_sb_info *info, int blknum)
+{
+	info->dir_content_block_list[blknum - info->start_dir_content_block] =
+	    0;
+}
+
+int emu3_get_free_dir_content_block(struct emu3_sb_info *info)
+{
+	int i;
+	for (i = 0; i < info->dir_content_blocks; i++)
+		if (!info->dir_content_block_list[i]) {
+			info->dir_content_block_list[i] = 1;
+			return info->start_dir_content_block + i;
+		}
+	return -1;
+}
+
 static void emu3_set_inode_size(struct inode *inode,
 				struct emu3_file_attrs *fattrs)
 {
@@ -410,8 +427,8 @@ void emu3_read_cluster_list(struct super_block *sb)
 	}
 }
 
-static int emu3_fill_super(struct super_block *sb, void *data, int silent,
-			   bool emu4)
+static int emu3_fill_super(struct super_block *sb, void *data,
+			   int silent, bool emu4)
 {
 	struct emu3_sb_info *info;
 	struct buffer_head *sbh;
@@ -478,15 +495,18 @@ static int emu3_fill_super(struct super_block *sb, void *data, int silent,
 
 	emu3_read_cluster_list(sb);
 
-	printk(KERN_INFO "%s: %d blocks, %d clusters, %d blocks/cluster\n",
+	printk(KERN_INFO
+	       "%s: %d blocks, %d clusters, %d blocks/cluster\n",
 	       EMU3_MODULE_NAME, info->blocks, info->clusters,
 	       info->blocks_per_cluster);
-	printk(KERN_INFO "%s: cluster list start block @ %d + %d blocks\n",
+	printk(KERN_INFO
+	       "%s: cluster list start block @ %d + %d blocks\n",
 	       EMU3_MODULE_NAME, info->start_cluster_list_block,
 	       info->cluster_list_blocks);
 	printk(KERN_INFO "%s: root start block @ %d + %d blocks\n",
 	       EMU3_MODULE_NAME, info->start_root_block, info->root_blocks);
-	printk(KERN_INFO "%s: dir content start block @ %d + %d blocks\n",
+	printk(KERN_INFO
+	       "%s: dir content start block @ %d + %d blocks\n",
 	       EMU3_MODULE_NAME, info->start_dir_content_block,
 	       info->dir_content_blocks);
 	printk(KERN_INFO "%s: data start block @ %d + %d clusters\n",

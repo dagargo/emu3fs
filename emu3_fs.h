@@ -195,3 +195,7 @@ void emu3_set_i_map(struct emu3_sb_info *, struct inode *, unsigned int);
 void emu3_inode_set_data(struct inode *, struct emu3_dentry *);
 
 ssize_t emu3_listxattr(struct dentry *, char *, size_t);
+
+void emu3_free_dir_content_block(struct emu3_sb_info *, int);
+
+int emu3_get_free_dir_content_block(struct emu3_sb_info *);

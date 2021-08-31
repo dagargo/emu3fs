@@ -390,33 +390,25 @@ static int emu3_find_empty_file_dentry(struct inode *dir,
 		goto cleanup;
 	}
 
-	for (j = 0; j < info->dir_content_blocks; j++) {
-		if (!info->dir_content_block_list[j]) {
-
-			info->dir_content_block_list[j] = 1;
-
-			blknum = info->start_dir_content_block + j;
-			e3d_dir->data.dattrs.block_list[i] =
-			    cpu_to_le16(blknum);
-			emu3_inode_set_data(dir, e3d_dir);
-			mark_buffer_dirty_inode(db, dir);
-
-			*b = sb_bread(dir->i_sb, blknum);
-			*dnum = EMU3_DNUM(blknum, 0);
-
-			*e3d = (struct emu3_dentry *)(*b)->b_data;
-
-			dir->i_blocks++;
-			dir->i_size = dir->i_blocks * EMU3_BSIZE;
-			dir->i_mtime = current_time(dir);
-			mark_inode_dirty(dir);
-
-			goto add_id;
-		}
+	blknum = emu3_get_free_dir_content_block(info);
+	if (block < 0) {
+		err = -ENOSPC;
+		goto cleanup;
 	}
 
-	err = -ENOSPC;
-	goto cleanup;
+	e3d_dir->data.dattrs.block_list[i] = cpu_to_le16(blknum);
+	emu3_inode_set_data(dir, e3d_dir);
+	mark_buffer_dirty_inode(db, dir);
+
+	*b = sb_bread(dir->i_sb, blknum);
+	*dnum = EMU3_DNUM(blknum, 0);
+
+	*e3d = (struct emu3_dentry *)(*b)->b_data;
+
+	dir->i_blocks++;
+	dir->i_size = dir->i_blocks * EMU3_BSIZE;
+	dir->i_mtime = current_time(dir);
+	mark_inode_dirty(dir);
 
  add_id:
 	id = emu3_get_free_file_id(dir);
@@ -599,7 +591,7 @@ static int emu3_add_dir_dentry(struct inode *dir, struct qstr *q,
 			       unsigned int *dnum, struct emu3_dentry **e3d,
 			       struct buffer_head **b)
 {
-	int i;
+	int i, block;
 	struct emu3_sb_info *info = EMU3_SB(dir->i_sb);
 	struct super_block *sb = dir->i_sb;
 
@@ -614,22 +606,16 @@ static int emu3_add_dir_dentry(struct inode *dir, struct qstr *q,
 	if (!*e3d)
 		return -ENOSPC;
 
-	for (i = 0; i < info->dir_content_blocks; i++)
-		if (!info->dir_content_block_list[i])
-			break;
-
-	if (i == info->dir_content_blocks) {
+	block = emu3_get_free_dir_content_block(info);
+	if (block < 0) {
 		brelse(*b);
 		return -ENOSPC;
 	}
 
-	info->dir_content_block_list[i] = 1;
-
 	emu3_set_dentry_name(*e3d, q);
 	(*e3d)->data.unknown = 0;
 	(*e3d)->data.id = EMU3_DTYPE_1;
-	(*e3d)->data.dattrs.block_list[0] =
-	    cpu_to_le16(info->start_dir_content_block + i);
+	(*e3d)->data.dattrs.block_list[0] = cpu_to_le16(block);
 	for (i = 1; i < EMU3_BLOCKS_PER_DIR; i++) {
 		(*e3d)->data.dattrs.block_list[i] =
 		    cpu_to_le16(EMU3_FREE_DIR_BLOCK);
@@ -847,10 +833,9 @@ static int emu3_rmdir(struct inode *dir, struct dentry *dentry)
 	for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++) {
 		if (EMU3_IS_DIR_BLOCK_FREE(e3d->data.dattrs.block_list[i]))
 			break;
-		blknum =
-		    le16_to_cpu(e3d->data.dattrs.block_list[i]) -
-		    info->start_dir_content_block;
-		info->dir_content_block_list[blknum] = 0;
+
+		blknum = le16_to_cpu(e3d->data.dattrs.block_list[i]);
+		emu3_free_dir_content_block(info, blknum);
 	}
 	memset(e3d, 0, sizeof(struct emu3_dentry));
 	emu3_clear_i_map(info, inode);
