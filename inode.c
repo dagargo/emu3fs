@@ -149,7 +149,7 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 		iops = &emu3_inode_operations_dir;
 		fops = &emu3_file_operations_dir;
 		links = 2;
-		mode = EMU3_DIR_MODE;
+		mode = EMU3_ROOT_DIR_MODE;
 	} else {
 		e3d = emu3_find_dentry_by_inode(inode, &b);
 
