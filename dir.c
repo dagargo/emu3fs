@@ -242,16 +242,15 @@ static int emu3_iterate(struct file *f, struct dir_context *ctx)
 		return -ENOTDIR;
 
 	if (ctx->pos == 0) {
-		ctx->pos++;
-		if (!dir_emit(ctx, ".", 1, dir->i_ino, DT_DIR))
+		if (!dir_emit_dot(f, ctx))
 			return 0;
+		ctx->pos++;
 	}
 
 	if (ctx->pos == 1) {
-		ctx->pos++;
-		if (!dir_emit
-		    (ctx, "..", 2, f->f_path.dentry->d_inode->i_ino, DT_DIR))
+		if (!dir_emit_dotdot(f, ctx))
 			return 0;
+		ctx->pos++;
 	}
 
 	if (EMU3_IS_I_ROOT_DIR(dir))
@@ -792,6 +791,9 @@ static int emu3_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	emu3_inode_set_data(inode, e3d);
 	brelse(b);
 
+	set_nlink(inode, 2);
+	inode_inc_link_count(dir);
+
 	insert_inode_hash(inode);
 	mark_inode_dirty(inode);
 	mutex_unlock(&info->lock);
@@ -804,7 +806,7 @@ static int emu3_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 static int emu3_rmdir(struct inode *dir, struct dentry *dentry)
 {
 	int i, ret = 0;
-	short blknum;
+	short *block, blknum;
 	struct buffer_head *b;
 	struct emu3_dentry *e3d;
 	struct inode *inode = d_inode(dentry);
@@ -828,20 +830,22 @@ static int emu3_rmdir(struct inode *dir, struct dentry *dentry)
 		goto cleanup;
 	}
 
-	e3d->data.unknown = 0;
-	e3d->data.id = 0;
-	for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++) {
-		if (EMU3_IS_DIR_BLOCK_FREE(e3d->data.dattrs.block_list[i]))
+	block = e3d->data.dattrs.block_list;
+	for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++, block++) {
+		blknum = le16_to_cpu(*block);
+
+		if (EMU3_IS_DIR_BLOCK_FREE(blknum))
 			break;
 
-		blknum = le16_to_cpu(e3d->data.dattrs.block_list[i]);
 		emu3_free_dir_content_block(info, blknum);
 	}
+
 	memset(e3d, 0, sizeof(struct emu3_dentry));
-	emu3_clear_i_map(info, inode);
-	inode_dec_link_count(dir);
-	inode_dec_link_count(inode);
 	mark_buffer_dirty_inode(b, dir);
+	emu3_clear_i_map(info, inode);
+	inode_dec_link_count(inode);
+	inode_dec_link_count(inode);
+	inode_dec_link_count(dir);
  cleanup:
 	brelse(b);
  end:
