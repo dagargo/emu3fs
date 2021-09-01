@@ -42,20 +42,6 @@ int emu3_get_free_dir_content_block(struct emu3_sb_info *info)
 	return -1;
 }
 
-static void emu3_set_inode_size(struct inode *inode,
-				struct emu3_file_attrs *fattrs)
-{
-	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
-	int bytes_per_cluster = info->blocks_per_cluster * EMU3_BSIZE;
-	unsigned int clusters_rem;
-	unsigned int size = inode->i_size;
-
-	fattrs->clusters = (size / bytes_per_cluster) + 1;
-	clusters_rem = size % bytes_per_cluster;
-	fattrs->blocks = (clusters_rem / EMU3_BSIZE) + 1;
-	fattrs->bytes = clusters_rem % EMU3_BSIZE;
-}
-
 static struct inode *emu3_alloc_inode(struct super_block *sb)
 {
 	struct emu3_inode *e3i;
@@ -78,6 +64,61 @@ static void emu3_destroy_inode(struct inode *inode)
 	call_rcu(&inode->i_rcu, emu3_i_callback);
 }
 
+void emu3_set_fattrs(struct emu3_sb_info *info,
+		     struct emu3_file_attrs *fattrs, loff_t size)
+{
+	unsigned int rem;
+	if (size == 0) {
+		fattrs->clusters = cpu_to_le16(1);
+		fattrs->blocks = cpu_to_le16(1);
+		fattrs->bytes = cpu_to_le16(0);
+	} else {
+		fattrs->clusters = size / info->bytes_per_cluster;
+		rem = size % info->bytes_per_cluster;
+		if (rem)
+			fattrs->clusters++;
+		fattrs->blocks = rem / EMU3_BSIZE;
+		rem = rem % EMU3_BSIZE;
+		if (rem)
+			fattrs->blocks++;
+		fattrs->bytes = rem;
+		fattrs->clusters = cpu_to_le16(fattrs->clusters);
+		fattrs->blocks = cpu_to_le16(fattrs->blocks);
+		fattrs->bytes = cpu_to_le16(fattrs->bytes);
+	}
+}
+
+//Prunes the cluster list to the real inode size
+static void emu3_prune_cluster_list(struct inode *inode)
+{
+	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
+	struct emu3_inode *e3i = EMU3_I(inode);
+	short clusters, last_cluster, next_cluster;
+	int pruning;
+
+	clusters = le16_to_cpu(e3i->data.fattrs.clusters);
+	last_cluster = emu3_get_cluster(inode, clusters - 1);
+	pruning = 0;
+
+	next_cluster = le16_to_cpu(info->cluster_list[last_cluster]);
+	while (next_cluster != EMU_LAST_FILE_CLUSTER) {
+		info->cluster_list[last_cluster] =
+		    pruning ? 0 : cpu_to_le16(EMU_LAST_FILE_CLUSTER);
+		last_cluster = next_cluster;
+		next_cluster = le16_to_cpu(info->cluster_list[last_cluster]);
+		pruning = 1;
+	}
+	if (pruning)
+		info->cluster_list[last_cluster] = 0;
+}
+
+void emu3_set_inode_blocks(struct inode *inode, struct emu3_file_attrs *fattrs)
+{
+	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
+	inode->i_blocks =
+	    le16_to_cpu(fattrs->clusters) * info->blocks_per_cluster;
+}
+
 static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
@@ -96,10 +137,10 @@ static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 		return -ENOENT;
 	}
 
-	emu3_update_cluster_list(inode);
-
-	emu3_set_inode_size(inode, &e3d->data.fattrs);
-	emu3_inode_set_data(inode, e3d);
+	emu3_set_fattrs(info, &e3d->data.fattrs, inode->i_size);
+	emu3_set_inode_blocks(inode, &e3d->data.fattrs);
+	emu3_set_emu3_inode_data(inode, e3d);
+	emu3_prune_cluster_list(inode);
 
 	mark_buffer_dirty(bh);
 	if (wbc->sync_mode == WB_SYNC_ALL) {
@@ -265,30 +306,6 @@ static void emu3_put_super(struct super_block *sb)
 }
 
 //Base 0 search
-int emu3_expand_cluster_list(struct inode *inode, sector_t block)
-{
-	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
-	int cluster = ((int)block) / info->blocks_per_cluster;
-	short next = EMU3_I_START_CLUSTER(inode);
-	int new, i = 0;
-
-	while (le16_to_cpu(info->cluster_list[next]) != EMU_LAST_FILE_CLUSTER) {
-		next = le16_to_cpu(info->cluster_list[next]);
-		i++;
-	}
-	while (i < cluster) {
-		new = emu3_next_free_cluster(info);
-		if (new < 0)
-			return -ENOSPC;
-		info->cluster_list[next] = cpu_to_le16(new);
-		next = new;
-		i++;
-	}
-	info->cluster_list[next] = cpu_to_le16(EMU_LAST_FILE_CLUSTER);
-	return 0;
-}
-
-//Base 0 search
 int emu3_get_cluster(struct inode *inode, int n)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
@@ -324,45 +341,6 @@ void emu3_clear_cluster_list(struct inode *inode)
 		info->cluster_list[prev] = 0;
 	}
 	info->cluster_list[next] = 0;
-}
-
-short int emu3_get_inode_clusters(struct inode *inode)
-{
-	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
-	int bytes_per_cluster = info->blocks_per_cluster * EMU3_BSIZE;
-	short int clusters;
-
-	if (inode->i_size == 0)
-		clusters = 1;
-	else {
-		clusters = inode->i_size / bytes_per_cluster;
-		if (inode->i_size % bytes_per_cluster > 0)
-			clusters++;
-	}
-	return clusters;
-}
-
-//Prunes the cluster list to the real inode size
-void emu3_update_cluster_list(struct inode *inode)
-{
-	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
-	short int clusters, last_cluster, next_cluster;
-	int pruning;
-
-	clusters = emu3_get_inode_clusters(inode);
-	last_cluster = emu3_get_cluster(inode, clusters - 1);
-	pruning = 0;
-
-	next_cluster = le16_to_cpu(info->cluster_list[last_cluster]);
-	while (next_cluster != EMU_LAST_FILE_CLUSTER) {
-		info->cluster_list[last_cluster] =
-		    pruning ? 0 : cpu_to_le16(EMU_LAST_FILE_CLUSTER);
-		last_cluster = next_cluster;
-		next_cluster = le16_to_cpu(info->cluster_list[last_cluster]);
-		pruning = 1;
-	}
-	if (pruning)
-		info->cluster_list[last_cluster] = 0;
 }
 
 int emu3_next_free_cluster(struct emu3_sb_info *info)
@@ -483,6 +461,7 @@ static int emu3_fill_super(struct super_block *sb, void *data,
 	info->start_data_block = le32_to_cpu(parameters[8]);
 	info->blocks_per_cluster = (0x10000 << (e3sb[0x28] - 1)) / EMU3_BSIZE;
 	info->clusters = le32_to_cpu(parameters[9]) / (e3sb[0x28] >= 5 ? 2 : 1);
+	info->bytes_per_cluster = info->blocks_per_cluster * EMU3_BSIZE;
 
 	//Now it's time to read the cluster list...
 	size = EMU3_BSIZE * info->cluster_list_blocks;

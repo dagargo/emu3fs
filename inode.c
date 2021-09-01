@@ -23,7 +23,8 @@
 
 #include "emu3_fs.h"
 
-inline void emu3_inode_set_data(struct inode *inode, struct emu3_dentry *e3d)
+inline void emu3_set_emu3_inode_data(struct inode *inode,
+				     struct emu3_dentry *e3d)
 {
 	struct emu3_inode *e3i = EMU3_I(inode);
 	memcpy(&e3i->data, &e3d->data, sizeof(struct emu3_dentry_data));
@@ -92,40 +93,47 @@ struct emu3_dentry *emu3_find_dentry_by_inode(struct inode *inode,
 	return e3d;
 }
 
-static unsigned int emu3_dir_block_count(struct emu3_dentry *e3d,
-					 struct emu3_sb_info *info)
+static void emu3_set_inode_size_dir(struct inode *inode)
 {
-	unsigned int i = 0;
-	short *block = e3d->data.dattrs.block_list;
-
-	for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++, block++) {
+	struct emu3_inode *e3i = EMU3_I(inode);
+	unsigned int i;
+	short *block = e3i->data.dattrs.block_list;
+	for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++, block++)
 		if (EMU3_IS_DIR_BLOCK_FREE(*block))
-			return i;
-	}
-
-	return i;
+			break;
+	inode->i_blocks = i;
+	inode->i_size = inode->i_blocks * EMU3_BSIZE;
 }
 
-static void emu3_file_block_count(struct inode *inode, struct emu3_dentry *e3d,
-				  int *bsize, int *fsize)
+static void emu3_set_inode_size_file(struct inode *inode)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
-	short clusters = cpu_to_le16(e3d->data.fattrs.clusters) - 1;
-	short blocks = cpu_to_le16(e3d->data.fattrs.blocks);
+	struct emu3_inode *e3i = EMU3_I(inode);
+	short clusters = cpu_to_le16(e3i->data.fattrs.clusters);
+	short blocks = cpu_to_le16(e3i->data.fattrs.blocks);
+	short bytes = cpu_to_le16(e3i->data.fattrs.bytes);
 
 	if (blocks > info->blocks_per_cluster) {
 		printk(KERN_CRIT "%s: Bad data in inode %ld\n",
 		       EMU3_MODULE_NAME, inode->i_ino);
 	}
-	*bsize = (clusters * info->blocks_per_cluster) + blocks;
-	*fsize =
-	    ((*bsize - 1) * EMU3_BSIZE) + cpu_to_le16(e3d->data.fattrs.bytes);
+	inode->i_blocks = clusters * info->blocks_per_cluster;
+
+	if (clusters == 1 && blocks == 1 && bytes == 0)
+		inode->i_size = 0;
+	else {
+		if (blocks > 1)
+			clusters--;
+		if (bytes)
+			blocks--;
+		inode->i_size =
+		    (clusters * info->blocks_per_cluster +
+		     blocks) * EMU3_BSIZE + bytes;
+	}
 }
 
 struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 {
-	int file_blocks;
-	int file_size;
 	umode_t mode;
 	unsigned int links;
 	struct inode *inode;
@@ -144,8 +152,8 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 		return inode;
 
 	if (EMU3_IS_I_ROOT_DIR(inode)) {
-		file_blocks = info->root_blocks;
-		file_size = info->root_blocks * EMU3_BSIZE;
+		inode->i_blocks = info->root_blocks;
+		inode->i_size = info->root_blocks * EMU3_BSIZE;
 		iops = &emu3_inode_operations_dir;
 		fops = &emu3_file_operations_dir;
 		links = 2;
@@ -156,17 +164,18 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 		if (!e3d)
 			return ERR_PTR(-EIO);
 
+		emu3_set_emu3_inode_data(inode, e3d);
+		brelse(b);
+
 		if (EMU3_DENTRY_IS_FILE(e3d)) {
-			emu3_file_block_count(inode, e3d, &file_blocks,
-					      &file_size);
+			emu3_set_inode_size_file(inode);
 			iops = &emu3_inode_operations_file;
 			fops = &emu3_file_operations_file;
 			links = 1;
 			mode = EMU3_FILE_MODE;
 			inode->i_mapping->a_ops = &emu3_aops;
 		} else if (EMU3_DENTRY_IS_DIR(e3d)) {
-			file_blocks = emu3_dir_block_count(e3d, info);
-			file_size = file_blocks * EMU3_BSIZE;
+			emu3_set_inode_size_dir(inode);
 			iops = &emu3_inode_operations_dir;
 			fops = &emu3_file_operations_dir;
 			links = 2;
@@ -178,8 +187,6 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 			brelse(b);
 			return ERR_PTR(-EIO);
 		}
-		emu3_inode_set_data(inode, e3d);
-		brelse(b);
 	}
 
 	if (mode & S_IFDIR)
@@ -193,8 +200,6 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 	set_nlink(inode, links);
 	inode->i_op = iops;
 	inode->i_fop = fops;
-	inode->i_blocks = file_blocks;
-	inode->i_size = file_size;
 	inode->i_mtime = inode->i_atime = inode->i_ctime = current_time(inode);
 
 	unlock_new_inode(inode);

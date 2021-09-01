@@ -20,12 +20,37 @@
 
 #include "emu3_fs.h"
 
+//Base 0 search
+static int emu3_expand_cluster_list(struct inode *inode, sector_t block)
+{
+	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
+	int cluster = ((int)block) / info->blocks_per_cluster;
+	short next = EMU3_I_START_CLUSTER(inode);
+	int new, i = 0;
+
+	while (le16_to_cpu(info->cluster_list[next]) != EMU_LAST_FILE_CLUSTER) {
+		next = le16_to_cpu(info->cluster_list[next]);
+		i++;
+	}
+	while (i < cluster) {
+		new = emu3_next_free_cluster(info);
+		if (new < 0)
+			return -ENOSPC;
+		info->cluster_list[next] = cpu_to_le16(new);
+		next = new;
+		i++;
+	}
+	info->cluster_list[next] = cpu_to_le16(EMU_LAST_FILE_CLUSTER);
+	return 0;
+}
+
 static int
 emu3_get_block(struct inode *inode, sector_t block,
 	       struct buffer_head *bh_result, int create)
 {
 	sector_t phys;
 	struct super_block *sb = inode->i_sb;
+	struct emu3_inode *e3i = EMU3_I(inode);
 	struct emu3_sb_info *info = EMU3_SB(sb);
 	int err;
 
@@ -43,10 +68,12 @@ emu3_get_block(struct inode *inode, sector_t block,
 	mutex_unlock(&info->lock);
 
 	if (err)
-		return -ENOSPC;
+		return err;
 	else {
 		phys = emu3_get_phys_block(inode, block);
 		map_bh(bh_result, sb, phys);
+		emu3_set_fattrs(info, &e3i->data.fattrs, inode->i_size);
+		emu3_set_inode_blocks(inode, &e3i->data.fattrs);
 		mark_inode_dirty(inode);
 	}
 

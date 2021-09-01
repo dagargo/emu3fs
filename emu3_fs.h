@@ -113,6 +113,7 @@ struct emu3_sb_info {
 	unsigned int start_data_block;
 	unsigned int blocks_per_cluster;
 	unsigned int clusters;
+	unsigned int bytes_per_cluster;	//This is quite convenient.
 	short *cluster_list;
 	bool *dir_content_block_list;
 	unsigned int *i_maps;
@@ -167,15 +168,11 @@ struct inode *emu3_get_inode(struct super_block *, unsigned long);
 
 void emu3_write_cluster_list(struct super_block *);
 
-int emu3_expand_cluster_list(struct inode *, sector_t);
-
 int emu3_next_free_cluster(struct emu3_sb_info *);
 
 void emu3_init_cluster_list(struct inode *);
 
 int emu3_get_cluster(struct inode *, int);
-
-void emu3_update_cluster_list(struct inode *);
 
 void emu3_clear_cluster_list(struct inode *);
 
@@ -192,10 +189,14 @@ void emu3_clear_i_map(struct emu3_sb_info *, struct inode *);
 
 void emu3_set_i_map(struct emu3_sb_info *, struct inode *, unsigned int);
 
-void emu3_inode_set_data(struct inode *, struct emu3_dentry *);
+void emu3_set_emu3_inode_data(struct inode *, struct emu3_dentry *);
 
 ssize_t emu3_listxattr(struct dentry *, char *, size_t);
 
 void emu3_free_dir_content_block(struct emu3_sb_info *, int);
 
 int emu3_get_free_dir_content_block(struct emu3_sb_info *);
+
+void emu3_set_fattrs(struct emu3_sb_info *, struct emu3_file_attrs *, loff_t);
+
+void emu3_set_inode_blocks(struct inode *, struct emu3_file_attrs *);

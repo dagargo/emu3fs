@@ -396,7 +396,7 @@ static int emu3_find_empty_file_dentry(struct inode *dir,
 	}
 
 	e3d_dir->data.dattrs.block_list[i] = cpu_to_le16(blknum);
-	emu3_inode_set_data(dir, e3d_dir);
+	emu3_set_emu3_inode_data(dir, e3d_dir);
 	mark_buffer_dirty_inode(db, dir);
 
 	*b = sb_bread(dir->i_sb, blknum);
@@ -452,9 +452,7 @@ static int emu3_add_file_dentry(struct inode *dir, struct dentry *dentry,
 	//The id is set in emu3_find_empty_file_dentry
 	(*e3d)->data.unknown = 0;
 	(*e3d)->data.fattrs.start_cluster = cpu_to_le16(start_cluster);
-	(*e3d)->data.fattrs.clusters = cpu_to_le16(1);
-	(*e3d)->data.fattrs.blocks = cpu_to_le16(1);
-	(*e3d)->data.fattrs.bytes = cpu_to_le16(0);
+	emu3_set_fattrs(info, &(*e3d)->data.fattrs, 0);
 	(*e3d)->data.fattrs.type = EMU3_FTYPE_STD;
 	memset((*e3d)->data.fattrs.props, 0, EMU3_FILE_PROPS_LEN);
 	mark_buffer_dirty_inode(*b, dir);
@@ -495,7 +493,7 @@ static int emu3_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 
 	inode_init_owner(inode, dir, mode);
 	inode->i_mtime = inode->i_atime = inode->i_ctime = current_time(inode);
-	inode->i_blocks = info->blocks_per_cluster * EMU3_BSIZE;
+	inode->i_blocks = info->blocks_per_cluster;
 	inode->i_op = &emu3_inode_operations_file;
 	inode->i_fop = &emu3_file_operations_file;
 	inode->i_opflags |= IOP_XATTR;
@@ -503,7 +501,7 @@ static int emu3_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	inode->i_ino = emu3_get_or_add_i_map(info, dnum);
 	inode->i_size = 0;
 
-	emu3_inode_set_data(inode, e3d);
+	emu3_set_emu3_inode_data(inode, e3d);
 	brelse(b);
 
 	emu3_init_cluster_list(inode);
@@ -731,7 +729,7 @@ static int emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
 			memcpy(new_e3d, old_e3d, sizeof(struct emu3_dentry));
 			new_e3d->data.id = id;
 
-			emu3_inode_set_data(old_dentry->d_inode, new_e3d);
+			emu3_set_emu3_inode_data(old_dentry->d_inode, new_e3d);
 
 			new_dir->i_mtime = current_time(new_dir);
 			mark_buffer_dirty_inode(new_b, new_dir);
@@ -788,7 +786,7 @@ static int emu3_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	inode->i_size = EMU3_BSIZE;
 	inode->i_mtime = inode->i_atime = inode->i_ctime = current_time(inode);
 
-	emu3_inode_set_data(inode, e3d);
+	emu3_set_emu3_inode_data(inode, e3d);
 	brelse(b);
 
 	set_nlink(inode, 2);
