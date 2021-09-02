@@ -69,7 +69,7 @@ echo
 printTest "Very basic emu3 testing"
 
 echo "Mounting image as emu3..."
-sudo mount -t emu3 /dev/loop0 $EMU3_MOUNTPOINT
+logAndRun sudo mount -t emu3 /dev/loop0 $EMU3_MOUNTPOINT
 test .
 logAndRun mkdir $EMU3_MOUNTPOINT/foo
 testError .
@@ -235,7 +235,7 @@ test
 logAndRun diff t6 $EMU3_MOUNTPOINT/foo/t6
 test
 
-logAndRun echo "Remounting..."
+echo "Remounting..."
 logAndRun sudo umount $EMU3_MOUNTPOINT
 test
 logAndRun sudo mount -t emu4 /dev/loop0 $EMU3_MOUNTPOINT
@@ -298,7 +298,7 @@ logAndRun mkdir $EMU3_MOUNTPOINT/d1
 test
 logAndRun mkdir $EMU3_MOUNTPOINT/d2
 test
-echo "12345" > $EMU3_MOUNTPOINT/d1/t1
+logAndRun 'echo "12345" > $EMU3_MOUNTPOINT/d1/t1'
 logAndRun cat $EMU3_MOUNTPOINT/d1/t1
 test d1
 
@@ -340,7 +340,7 @@ logAndRun ls -li $EMU3_MOUNTPOINT/d1/t1
 testError d1
 
 logAndRun rm $EMU3_MOUNTPOINT/d2/t2
-echo "1234567" > $EMU3_MOUNTPOINT/d1/t2
+logAndRun 'echo "1234567" > $EMU3_MOUNTPOINT/d1/t2'
 logAndRun mv $EMU3_MOUNTPOINT/d1/t2 $EMU3_MOUNTPOINT/d2
 test d2
 logAndRun cat $EMU3_MOUNTPOINT/d2/t2
