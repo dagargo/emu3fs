@@ -466,12 +466,10 @@ static int emu3_fill_super(struct super_block *sb, void *data,
 	//Now it's time to read the cluster list...
 	size = EMU3_BSIZE * info->cluster_list_blocks;
 	info->cluster_list = kzalloc(size, GFP_KERNEL);
-
 	if (!info->cluster_list) {
 		err = -ENOMEM;
 		goto out2;
 	}
-
 	emu3_read_cluster_list(sb);
 
 	printk(KERN_INFO
@@ -521,6 +519,8 @@ static int emu3_fill_super(struct super_block *sb, void *data,
 		err = -EIO;
 		goto out5;
 	}
+	if (!emu4)
+		inode->i_mode = EMU3_ROOT_DIR_MODE;
 
 	sb->s_root = d_make_root(inode);
 	if (!sb->s_root) {
