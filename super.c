@@ -88,8 +88,17 @@ void emu3_set_fattrs(struct emu3_sb_info *info,
 	}
 }
 
+void emu3_init_fattrs(struct emu3_sb_info *info,
+		      struct emu3_file_attrs *fattrs, short start_cluster)
+{
+	fattrs->start_cluster = cpu_to_le16(start_cluster);
+	emu3_set_fattrs(info, fattrs, 0);
+	fattrs->type = EMU3_FTYPE_STD;
+	memset(fattrs->props, 0, EMU3_FILE_PROPS_LEN);
+}
+
 //Prunes the cluster list to the real inode size
-static void emu3_prune_cluster_list(struct inode *inode)
+void emu3_prune_cluster_list(struct inode *inode)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
 	struct emu3_inode *e3i = EMU3_I(inode);
@@ -148,16 +157,10 @@ static int emu3_write_inode(struct inode *inode, struct writeback_control *wbc)
 		if (buffer_req(bh) && !buffer_uptodate(bh))
 			err = -EIO;
 	}
+
 	brelse(bh);
 	mutex_unlock(&info->lock);
 	return err;
-}
-
-static void emu3_evict_inode(struct inode *inode)
-{
-	truncate_inode_pages(&inode->i_data, 0);
-	invalidate_inode_buffers(inode);
-	clear_inode(inode);
 }
 
 //This happens occasionally, luckily only on single dir images, so we try to fix it.
@@ -216,7 +219,7 @@ static int emu3_get_free_clusters(struct emu3_sb_info *info)
 	int i;
 
 	for (i = 1; i <= info->clusters; i++)
-		if (info->cluster_list[i] == 0)
+		if (!info->cluster_list[i])
 			free_clusters++;
 	return free_clusters;
 }
@@ -330,8 +333,9 @@ void emu3_init_cluster_list(struct inode *inode)
 	    cpu_to_le16(EMU_LAST_FILE_CLUSTER);
 }
 
-void emu3_clear_cluster_list(struct inode *inode)
+static void emu3_clear_cluster_list(struct inode *inode)
 {
+	int i = 1;
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
 	short prev, next = EMU3_I_START_CLUSTER(inode);
 
@@ -339,6 +343,12 @@ void emu3_clear_cluster_list(struct inode *inode)
 		prev = next;
 		next = le16_to_cpu(info->cluster_list[next]);
 		info->cluster_list[prev] = 0;
+		i++;
+		if (i > info->clusters) {
+			printk(KERN_CRIT "%s: Loop detected in cluster list\n",
+			       EMU3_MODULE_NAME);
+			break;
+		}
 	}
 	info->cluster_list[next] = 0;
 }
@@ -364,6 +374,22 @@ sector_t emu3_get_phys_block(struct inode *inode, sector_t block)
 		return -1;
 	return info->start_data_block +
 	    ((cluster - 1) * info->blocks_per_cluster) + offset;
+}
+
+static void emu3_evict_inode(struct inode *inode)
+{
+	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
+	truncate_inode_pages(&inode->i_data, 0);
+	if (!inode->i_nlink && !EMU3_IS_I_ROOT_DIR(inode)
+	    && !EMU3_IS_I_REG_DIR(inode, info)) {
+		mutex_lock(&info->lock);
+		emu3_clear_i_map(info, inode);
+		emu3_clear_cluster_list(inode);
+		mutex_unlock(&info->lock);
+		inode->i_size = 0;
+	}
+	invalidate_inode_buffers(inode);
+	clear_inode(inode);
 }
 
 static const struct super_operations emu3_super_operations = {

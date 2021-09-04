@@ -72,9 +72,8 @@ emu3_get_block(struct inode *inode, sector_t block,
 	else {
 		phys = emu3_get_phys_block(inode, block);
 		map_bh(bh_result, sb, phys);
-		emu3_set_fattrs(info, &e3i->data.fattrs, inode->i_size);
-		emu3_set_inode_blocks(inode, &e3i->data.fattrs);
-		mark_inode_dirty(inode);
+		inode->i_blocks += info->blocks_per_cluster;
+		e3i->data.fattrs.clusters++;
 	}
 
 	return 0;
@@ -104,6 +103,39 @@ static sector_t emu3_bmap(struct address_space *mapping, sector_t block)
 	return generic_block_bmap(mapping, block, emu3_get_block);
 }
 
+static int emu3_setattr(struct dentry *dentry, struct iattr *attr)
+{
+	struct inode *inode = d_inode(dentry);
+	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
+	struct emu3_inode *e3i = EMU3_I(inode);
+	blkcnt_t blocks;
+	int err;
+
+	err = setattr_prepare(dentry, attr);
+	if (err)
+		return err;
+
+	if ((attr->ia_valid & ATTR_SIZE) && attr->ia_size != i_size_read(inode)) {
+		err = inode_newsize_ok(inode, attr->ia_size);
+		if (err)
+			return err;
+
+		truncate_setsize(inode, attr->ia_size);
+		mutex_lock(&info->lock);
+		emu3_set_fattrs(info, &e3i->data.fattrs, attr->ia_size);
+		emu3_prune_cluster_list(inode);
+		blocks = e3i->data.fattrs.clusters * info->blocks_per_cluster;
+		mutex_unlock(&info->lock);
+
+		inode->i_blocks = blocks;
+	}
+
+	setattr_copy(inode, attr);
+	mark_inode_dirty(inode);
+
+	return 0;
+}
+
 const struct address_space_operations emu3_aops = {
 	.readpage = emu3_readpage,
 	.writepage = emu3_writepage,
@@ -122,5 +154,6 @@ const struct file_operations emu3_file_operations_file = {
 };
 
 const struct inode_operations emu3_inode_operations_file = {
-	.listxattr = emu3_listxattr
+	.listxattr = emu3_listxattr,
+	.setattr = emu3_setattr,
 };

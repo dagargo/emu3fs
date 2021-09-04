@@ -410,8 +410,9 @@ static int emu3_find_empty_file_dentry(struct inode *dir,
 	mark_inode_dirty(dir);
 
  add_id:
-	id = emu3_get_free_file_id(dir);
+	(*e3d)->data.unknown = 0;
 
+	id = emu3_get_free_file_id(dir);
 	if (id < 0) {
 		printk(KERN_CRIT
 		       "%s: No ID available for a newly created dentry\n",
@@ -450,11 +451,7 @@ static int emu3_add_file_dentry(struct inode *dir, struct dentry *dentry,
 
 	emu3_set_dentry_name(*e3d, &dentry->d_name);
 	//The id is set in emu3_find_empty_file_dentry
-	(*e3d)->data.unknown = 0;
-	(*e3d)->data.fattrs.start_cluster = cpu_to_le16(start_cluster);
-	emu3_set_fattrs(info, &(*e3d)->data.fattrs, 0);
-	(*e3d)->data.fattrs.type = EMU3_FTYPE_STD;
-	memset((*e3d)->data.fattrs.props, 0, EMU3_FILE_PROPS_LEN);
+	emu3_init_fattrs(info, &(*e3d)->data.fattrs, start_cluster);
 	mark_buffer_dirty_inode(*b, dir);
 
 	return err;
@@ -639,12 +636,10 @@ static int emu3_unlink(struct inode *dir, struct dentry *dentry)
 
 	e3d->data.fattrs.type = EMU3_FTYPE_DEL;
 	mark_buffer_dirty_inode(b, dir);
-	emu3_clear_i_map(info, inode);
 	dir->i_ctime = dir->i_mtime = current_time(dir);
 	mark_inode_dirty(dir);
 	inode->i_ctime = dir->i_ctime;
 	inode_dec_link_count(inode);
-	emu3_clear_cluster_list(inode);
 	brelse(b);
 
 	mutex_unlock(&info->lock);
@@ -698,9 +693,6 @@ static int emu3_rename(struct inode *old_dir, struct dentry *old_dentry,
 		brelse(new_b);
 
 		dnum = emu3_get_i_map(info, new_dentry->d_inode);
-		emu3_clear_i_map(info, new_dentry->d_inode);
-
-		emu3_clear_cluster_list(new_dentry->d_inode);
 		inode_dec_link_count(new_dentry->d_inode);
 		d_delete(new_dentry);
 	}

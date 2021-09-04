@@ -39,7 +39,7 @@ function testCommon() {
     printf "\033[0;31m"
   fi
   printf "Results: $ok/$total\033[0m\n\n"
-  [ $1 -ne 1 ] && cleanUp && exit 1
+  [ $1 -ne 1 ] && echo "emu3fs: Test error: $(date)" | sudo tee /dev/kmsg && sudo dmesg | tail -n 20 && cleanUp && exit 1
 }
 
 function test() {
@@ -58,6 +58,7 @@ ok=0
 echo "Inserting module..."
 logAndRun sudo modprobe -r emu3_fs
 logAndRun sudo modprobe emu3_fs
+echo
 
 echo "Uncompressing image..."
 logAndRun cp image.iso.xz.bak image.iso.xz
@@ -78,6 +79,10 @@ logAndRun cat $EMU3_MOUNTPOINT/t1
 test .
 logAndRun '[ "123" == "$out" ]'
 test
+logAndRun 'rm $EMU3_MOUNTPOINT/t1'
+test
+logAndRun 'ls $EMU3_MOUNTPOINT/t1'
+testError
 logAndRun sudo umount $EMU3_MOUNTPOINT
 test
 
@@ -116,7 +121,7 @@ test
 logAndRun '[ 123$'\''\n'\''4567 == "$out" ]'
 test
 
-printTest "cp and mv"
+printTest "cp"
 
 logAndRun cp $EMU3_MOUNTPOINT/foo/t1 $EMU3_MOUNTPOINT/foo/t3
 test
@@ -125,6 +130,8 @@ test
 logAndRun ls -l $EMU3_MOUNTPOINT/foo/t3
 test
 
+printTest "mv"
+
 logAndRun mv $EMU3_MOUNTPOINT/foo/t3 $EMU3_MOUNTPOINT/foo/t2
 test foo
 logAndRun ls -l $EMU3_MOUNTPOINT/foo/t3
@@ -132,13 +139,7 @@ testError
 logAndRun ls -l $EMU3_MOUNTPOINT/foo/t2
 test
 
-[ "$(< $EMU3_MOUNTPOINT/foo/t1)" == "$(< $EMU3_MOUNTPOINT/foo/t2)" ]
-test
-
-> $EMU3_MOUNTPOINT/foo/t1
-test foo/t2
-
-[ 0 -eq $(wc -c $EMU3_MOUNTPOINT/foo/t1 | awk '{print $1}') ]
+logAndRun '[ "$(< $EMU3_MOUNTPOINT/foo/t1)" == "$(< $EMU3_MOUNTPOINT/foo/t2)" ]'
 test
 
 printTest "cp with big files"
@@ -150,7 +151,6 @@ logAndRun ls -l $EMU3_MOUNTPOINT/foo/t3
 test
 logAndRun '[ $(stat --print "%s" t3) -eq $(stat --print "%s" $EMU3_MOUNTPOINT/foo/t3) ]'
 test
-logAndRun sudo sync
 logAndRun '[ 65536 -eq $(stat --print "%b" $EMU3_MOUNTPOINT/foo/t3) ]'
 test
 
@@ -176,6 +176,8 @@ test
 logAndRun '[ 65536 -eq $(stat --print "%b" $EMU3_MOUNTPOINT/foo/t3) ]'
 test
 
+date | tee
+
 logAndRun diff $EMU3_MOUNTPOINT/foo/t3 $EMU3_MOUNTPOINT/foo/t4
 test
 
@@ -186,12 +188,17 @@ logAndRun diff t3 t3.bak
 test
 rm -f t3 t3.bak
 
-printTest "Truncate file"
+printTest "Truncate"
+
+logAndRun '> $EMU3_MOUNTPOINT/foo/t1'
+test foo/t1
+
+logAndRun '[ 0 -eq $(wc -c $EMU3_MOUNTPOINT/foo/t1 | awk '\''{print $1}'\'') ]'
+test
 
 logAndRun '> $EMU3_MOUNTPOINT/foo/t3'
 logAndRun '[ $(stat --print "%s" $EMU3_MOUNTPOINT/foo/t3) -eq 0 ]'
 test
-logAndRun sudo sync
 logAndRun '[ 1024 -eq $(stat --print "%b" $EMU3_MOUNTPOINT/foo/t3) ]'
 test
 
@@ -224,7 +231,6 @@ test
 logAndRun diff t6 $EMU3_MOUNTPOINT/foo/t6
 test
 
-logAndRun sudo sync
 logAndRun '[ 1024 -eq $(stat --print "%b" $EMU3_MOUNTPOINT/foo/t5) ]'
 test
 logAndRun '[ 3072 -eq $(stat --print "%b" $EMU3_MOUNTPOINT/foo/t6) ]'

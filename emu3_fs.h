@@ -174,8 +174,6 @@ void emu3_init_cluster_list(struct inode *);
 
 int emu3_get_cluster(struct inode *, int);
 
-void emu3_clear_cluster_list(struct inode *);
-
 sector_t emu3_get_phys_block(struct inode *, sector_t);
 
 struct emu3_dentry *emu3_find_dentry_by_inode(struct inode *,
@@ -199,4 +197,8 @@ int emu3_get_free_dir_content_block(struct emu3_sb_info *);
 
 void emu3_set_fattrs(struct emu3_sb_info *, struct emu3_file_attrs *, loff_t);
 
+void emu3_init_fattrs(struct emu3_sb_info *, struct emu3_file_attrs *, short);
+
 void emu3_set_inode_blocks(struct inode *, struct emu3_file_attrs *);
+
+void emu3_prune_cluster_list(struct inode *);
