@@ -382,6 +382,19 @@ testError
 logAndRun setfattr -n "user.bank.number" -v 0 $EMU3_MOUNTPOINT/d2
 testError
 
+logAndRun getfattr -n "user.foo" $EMU3_MOUNTPOINT/d2/t2
+testError
+logAndRun setfattr -n "user.foo" -v 0 $EMU3_MOUNTPOINT/d2/t2
+testError
+
+logAndRun getfattr -n "user.foo" $EMU3_MOUNTPOINT/d2
+testError
+logAndRun setfattr -n "user.foo" -v 0 $EMU3_MOUNTPOINT/d2
+testError
+
+logAndRun setfattr -n "user.bank.number" -v foo $EMU3_MOUNTPOINT/d2/t2
+testError
+
 cleanUp
 
 v=0
