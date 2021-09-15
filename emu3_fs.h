@@ -102,6 +102,8 @@
 
 #define EMU3_FILE_PROPS_LEN 5
 
+#define EMU3_ERR_NOT_BLK "%s: block %d not available\n"
+
 struct emu3_sb_info {
 	unsigned int blocks;
 	unsigned int start_root_block;
@@ -165,8 +167,6 @@ extern const struct address_space_operations emu3_aops;
 extern const struct xattr_handler *emu3_xattr_handlers[];
 
 struct inode *emu3_get_inode(struct super_block *, unsigned long);
-
-void emu3_write_cluster_list(struct super_block *);
 
 int emu3_next_free_cluster(struct emu3_sb_info *);
 

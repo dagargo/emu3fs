@@ -13,7 +13,7 @@ function cleanUp() {
         echo "Cleaning up..."
         sudo umount -f $EMU3_MOUNTPOINT
         sudo losetup -d /dev/loop0
-        rm image.iso
+        rm -f image.iso  image_truncated.iso
 }
 
 function logAndRun() {
@@ -394,6 +394,22 @@ logAndRun setfattr -n "user.foo" -v 0 $EMU3_MOUNTPOINT/d2
 testError
 
 logAndRun setfattr -n "user.bank.number" -v foo $EMU3_MOUNTPOINT/d2/t2
+testError
+
+logAndRun sudo umount $EMU3_MOUNTPOINT
+logAndRun sudo losetup -d /dev/loop0
+echo
+
+echo "Uncompressing truncated image..."
+logAndRun cp image_truncated.iso.xz.bak image_truncated.iso.xz
+logAndRun sudo rm -f image_truncated.iso
+logAndRun unxz image_truncated.iso.xz
+logAndRun sudo losetup /dev/loop0 image_truncated.iso
+echo
+
+printTest "Mounting truncated image"
+
+logAndRun sudo mount -t emu3 /dev/loop0 $EMU3_MOUNTPOINT
 testError
 
 cleanUp
