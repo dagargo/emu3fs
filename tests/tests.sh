@@ -26,6 +26,7 @@ function logAndRun() {
 
 function printTest() {
         printf "\033[1;34m*** Test: $* ***\033[0m\n"
+        echo "emu3fs: *** Test: $* ***" | sudo tee /dev/kmsg
         echo
 }
 
@@ -308,7 +309,7 @@ logAndRun 'echo "12345" > $EMU3_MOUNTPOINT/d1/t1'
 logAndRun cat $EMU3_MOUNTPOINT/d1/t1
 test d1
 
-printTest "Direrctory full"
+printTest "Directory full"
 
 logAndRun mkdir $EMU3_MOUNTPOINT/full
 test full
