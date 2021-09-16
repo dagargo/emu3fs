@@ -380,8 +380,7 @@ static void emu3_evict_inode(struct inode *inode)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
 	truncate_inode_pages(&inode->i_data, 0);
-	if (!inode->i_nlink && !EMU3_IS_I_ROOT_DIR(inode)
-	    && !EMU3_IS_I_REG_DIR(inode, info)) {
+	if (!inode->i_nlink && inode->i_mode & S_IFREG) {
 		mutex_lock(&info->lock);
 		emu3_clear_i_map(info, inode);
 		emu3_clear_cluster_list(inode);
