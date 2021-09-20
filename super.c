@@ -270,6 +270,12 @@ static int emu3_get_free_dir_blocks(struct emu3_sb_info *info)
 	return free_blks;
 }
 
+static inline int emu3_get_addressable_blocks(struct emu3_sb_info *info)
+{
+	return info->root_blocks + info->dir_content_blocks +
+	    info->clusters * info->blocks_per_cluster;
+}
+
 static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
 {
 	struct super_block *sb = dentry->d_sb;
@@ -279,8 +285,8 @@ static int emu3_statfs(struct dentry *dentry, struct kstatfs *buf)
 	//For the free space and free inodes we do not consider files.
 	buf->f_type = EMU3_FS_TYPE;
 	buf->f_bsize = EMU3_BSIZE;
-	buf->f_blocks = info->root_blocks + info->dir_content_blocks +
-	    info->clusters * info->blocks_per_cluster;
+	//Total addressable blocks.
+	buf->f_blocks = emu3_get_addressable_blocks(info);
 	buf->f_bfree =
 	    emu3_get_free_clusters(info) * info->blocks_per_cluster +
 	    emu3_get_free_dir_blocks(info);
@@ -389,7 +395,7 @@ static int emu3_write_cluster_list(struct super_block *sb)
 		if (!b) {
 			printk(KERN_CRIT EMU3_ERR_NOT_BLK, EMU3_MODULE_NAME,
 			       blknum);
-			return - EIO;
+			return -EIO;
 		}
 
 		memcpy(b->b_data,
@@ -499,7 +505,7 @@ static int emu3_fill_super(struct super_block *sb, void *data,
 
 	parameters = (unsigned int *)e3sb;
 
-	info->blocks = le32_to_cpu(parameters[1]);	//TODO: add 1 ??? Do we really use this?
+	info->blocks = le32_to_cpu(parameters[1]) + 1;	//Total blocks in the physical device.
 	info->start_root_block = le32_to_cpu(parameters[2]);
 	info->root_blocks = le32_to_cpu(parameters[3]);
 	info->start_dir_content_block = le32_to_cpu(parameters[4]);
@@ -508,8 +514,12 @@ static int emu3_fill_super(struct super_block *sb, void *data,
 	info->cluster_list_blocks = le32_to_cpu(parameters[7]);
 	info->start_data_block = le32_to_cpu(parameters[8]);
 	info->blocks_per_cluster = (0x10000 << (e3sb[0x28] - 1)) / EMU3_BSIZE;
-	info->clusters = le32_to_cpu(parameters[9]) / (e3sb[0x28] >= 5 ? 2 : 1);
 	info->bytes_per_cluster = info->blocks_per_cluster * EMU3_BSIZE;
+	//In Formula 4000 only, the total amount of blocks and clusters would allow to have a disk bigger than the ISO image itself.
+	//Thus, the reported amount of blocks, size and free space is not right.
+	//However, if the iso image is resized to accommodate all the blocks, the format is valid and stat and df output the right values.
+	//This is not a problem on RO disks.
+	info->clusters = le32_to_cpu(parameters[9]);
 
 	//Now it's time to read the cluster list...
 	size = EMU3_BSIZE * info->cluster_list_blocks;
@@ -523,17 +533,16 @@ static int emu3_fill_super(struct super_block *sb, void *data,
 		goto out3;
 
 	printk(KERN_INFO
-	       "%s: %d blocks, %d clusters, %d blocks/cluster\n",
-	       EMU3_MODULE_NAME, info->blocks, info->clusters,
+	       "%s: %d physical blocks, %d addressable blocks, %d clusters, %d blocks/cluster\n",
+	       EMU3_MODULE_NAME, info->blocks,
+	       emu3_get_addressable_blocks(info), info->clusters,
 	       info->blocks_per_cluster);
-	printk(KERN_INFO
-	       "%s: cluster list start block @ %d + %d blocks\n",
+	printk(KERN_INFO "%s: cluster list start block @ %d + %d blocks\n",
 	       EMU3_MODULE_NAME, info->start_cluster_list_block,
 	       info->cluster_list_blocks);
 	printk(KERN_INFO "%s: root start block @ %d + %d blocks\n",
 	       EMU3_MODULE_NAME, info->start_root_block, info->root_blocks);
-	printk(KERN_INFO
-	       "%s: dir content start block @ %d + %d blocks\n",
+	printk(KERN_INFO "%s: dir content start block @ %d + %d blocks\n",
 	       EMU3_MODULE_NAME, info->start_dir_content_block,
 	       info->dir_content_blocks);
 	printk(KERN_INFO "%s: data start block @ %d + %d clusters\n",
