@@ -10,7 +10,7 @@ Simply run `make && sudo make install`. Note that you will need the Linux kernel
 
 ## Usage
 
-Once the module is inserted into the kernel (you might use `sudo modprobe emu3_fs`, you can mount the devices. You have 2 options here.
+Once the module is inserted into the kernel (you might use `sudo modprobe emu3_fs` for this), you can mount the devices. You have 2 options here.
 
 * Mount an EIII block device with `sudo mount -t emu3 device mountpoint`.
 
@@ -18,7 +18,9 @@ Once the module is inserted into the kernel (you might use `sudo modprobe emu3_f
 
 There are no differences between these two filesystems at the structure level. The only difference is that the root node is either the first directory on disk or the root directory respectively. The reason behind this is that EIV series allow to have directories, or folders as they call it, at the root level while older devices only give the user access to the first directory. Hence, it is possible but no recommended to mount an EIII disk as an `emu4` or vice versa.
 
-If the filesystem type is not provided, `emu3` is used as default. If you get the error below, use the `-t` option.
+If the filesystem type is not provided, `emu3` is used as default.
+
+If you get the error below, use the `-t` option.
 
 ```
 NTFS signature is missing.
