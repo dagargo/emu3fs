@@ -86,7 +86,7 @@ Alternatively, an `lsemu3` command could be defined as follows.
 #!/bin/bash
 
 if [ $# -eq 0 ]; then
-  lsemu3 *
+  lsemu3 * .*
   exit $?
 fi
 
@@ -219,4 +219,4 @@ $ EMU3_MOUNTPOINT=/media/emu3 ./tests.sh
 
 ## Related project
 
-[emu3bm](https://github.com/dagargo/emu3bm) is a EIII bank manager that allows a basic edition of presets and sample export and import for all the devices in the EIII series.
+[emu3bm](https://github.com/dagargo/emu3bm) is a EIII and EIV bank manager that allows a basic edition of presets and sample export and import.
