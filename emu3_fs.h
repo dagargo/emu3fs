@@ -30,7 +30,8 @@
 #define EMU3_FS_SIGNATURE "EMU3"
 #define EMU3_FS_TYPE 0x454d5533
 
-#define EMU3_BSIZE 0x200
+#define EMU3_BSIZE_BITS 9
+#define EMU3_BSIZE (1 << EMU3_BSIZE_BITS)
 #define EMU3_CLUSTER_ENTRIES_PER_BLOCK  (EMU3_BSIZE >> 1)
 
 #define EMU3_I_ID_ROOT_DIR 1	//Any value is valid as long as is lower than the first inode ID.
@@ -115,7 +116,7 @@ struct emu3_sb_info {
 	unsigned int start_data_block;
 	unsigned int blocks_per_cluster;
 	unsigned int clusters;
-	unsigned int bytes_per_cluster;	//This is quite convenient.
+	unsigned char cluster_size_shift; //Cluster size always a power of 2
 	short *cluster_list;
 	bool *dir_content_block_list;
 	unsigned int *i_maps;
