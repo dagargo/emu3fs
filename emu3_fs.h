@@ -24,6 +24,7 @@
 #include <linux/string.h>
 #include <linux/vfs.h>
 #include <linux/writeback.h>
+#include <linux/version.h>
 
 #define EMU3_MODULE_NAME "emu3fs"
 
