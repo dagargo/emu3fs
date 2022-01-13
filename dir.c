@@ -491,8 +491,13 @@ static int emu3_add_file_dentry(struct inode *dir, struct dentry *dentry,
 	return err;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
 static int emu3_create(struct user_namespace *mnt_userns, struct inode *dir,
 		       struct dentry *dentry, umode_t mode, bool excl)
+#else
+static int emu3_create(struct inode *dir,
+		       struct dentry *dentry, umode_t mode, bool excl)
+#endif
 {
 	int err;
 	unsigned int dnum;
@@ -522,7 +527,11 @@ static int emu3_create(struct user_namespace *mnt_userns, struct inode *dir,
 		goto end;
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
 	inode_init_owner(&init_user_ns, inode, dir, mode);
+#else
+	inode_init_owner(inode, dir, mode);
+#endif
 	inode->i_mtime = inode->i_atime = inode->i_ctime = current_time(inode);
 	inode->i_blocks = info->blocks_per_cluster;
 	inode->i_op = &emu3_inode_operations_file;
@@ -693,9 +702,15 @@ static int emu3_unlink(struct inode *dir, struct dentry *dentry)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
 static int emu3_rename(struct user_namespace *mnt_userns, struct inode *old_dir,
 		       struct dentry *old_dentry, struct inode *new_dir,
 		       struct dentry *new_dentry, unsigned int flags)
+#else
+static int emu3_rename(struct inode *old_dir,
+		       struct dentry *old_dentry, struct inode *new_dir,
+		       struct dentry *new_dentry, unsigned int flags)
+#endif
 {
 	int err = 0;
 	unsigned char id;
@@ -788,8 +803,13 @@ static int emu3_rename(struct user_namespace *mnt_userns, struct inode *old_dir,
 	return err;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
 static int emu3_mkdir(struct user_namespace *mnt_userns, struct inode *dir,
 		      struct dentry *dentry, umode_t mode)
+#else
+static int emu3_mkdir(struct inode *dir,
+		      struct dentry *dentry, umode_t mode)
+#endif
 {
 	int err;
 	unsigned int dnum;
@@ -816,7 +836,11 @@ static int emu3_mkdir(struct user_namespace *mnt_userns, struct inode *dir,
 		return err;
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
 	inode_init_owner(&init_user_ns, inode, dir, EMU3_DIR_MODE);
+#else
+	inode_init_owner(inode, dir, EMU3_DIR_MODE);
+#endif
 	inode->i_blocks = 1;
 	inode->i_op = &emu3_inode_operations_dir;
 	inode->i_fop = &emu3_file_operations_dir;
