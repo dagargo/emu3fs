@@ -47,6 +47,34 @@ If you are using a 512 B block size capable drive, like the `/dev/cdrom`, just d
 $ sudo mount -t emu3 /dev/cdrom mountpoint
 ```
 
+### Mounting SCSI2SD partitions
+
+SCSI2SD does not store partition information on the card. Therefore, mounting the card only allows to see the first partition. Nevertheless, `losetup` allows to mount arbitraty portions of the card.
+
+First, we need to know the starting points of each partition, either from a SCSI2SD configuration file, or from SCI2SD itself through `sci2sd-util`.
+
+For example, a 16GB card could be splitted in 4 portions, which would give 4 offsets: 0, 7733504, 15467008 and 23200512 sectors. In order to calculate the offset for the `losetup` command, offsets in bytes have either to be multiplied the sector number by 512 or divide it by 2 in order to have the offset in KiB.
+
+In this example, that will be 0, 3866752K, 7733504K and 11600256K.
+
+Next, we need to know the first available /dev/loop.
+
+```
+$ losetup -f
+/dev/loop20
+```
+
+Then, we can create the loop devices for our partitions.
+
+```
+$ sudo losetup /dev/loop20 /dev/sdb
+$ sudo losetup -o 3866752K /dev/loop21 /dev/sdb
+$ sudo losetup -o 7733504K /dev/loop22 /dev/sdb
+$ sudo losetup -o 11600256K /dev/loop23 /dev/sdb
+```
+
+And, finally, can be mount the loop devices as usual.
+
 ## Bank numbers
 
 The bank number is part of the structure stored on the device but it is **not** a part of the name. When a file is created, the lowest bank number available is used; when a file is deleted, the bank number it was using becomes available.

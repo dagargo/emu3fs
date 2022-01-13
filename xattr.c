@@ -49,10 +49,18 @@ static int emu3_xattr_get(const struct xattr_handler *handler,
 	return ret;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+static int emu3_xattr_set(const struct xattr_handler *handler,
+			  struct user_namespace *mnt_userns,
+			  struct dentry *dentry, struct inode *inode,
+			  const char *name, const void *buffer, size_t size,
+			  int flags)
+#else
 static int emu3_xattr_set(const struct xattr_handler *handler,
 			  struct dentry *dentry, struct inode *inode,
-			  const char *name, const void *buffer,
-			  size_t size, int flags)
+			  const char *name, const void *buffer, size_t size,
+			  int flags)
+#endif
 {
 	long bn;
 	int ret;
