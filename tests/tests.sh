@@ -372,6 +372,8 @@ logAndRun '[ $out -eq 111 ]'
 test
 logAndRun setfattr -n "user.bank.number" -v 112 $EMU3_MOUNTPOINT/d2/t2
 testError
+logAndRun setfattr -n "user.bank.number" --value=-1 $EMU3_MOUNTPOINT/d2/t2
+testError
 
 logAndRun getfattr -d -m ".*" $EMU3_MOUNTPOINT/d2
 test
