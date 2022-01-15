@@ -2,16 +2,14 @@
 
 [ -z "$EMU3_TEST_DEBUG" ] && EMU3_TEST_DEBUG=0
 
-if [ "$EMU3_MOUNTPOINT" == "" ]; then
-  echo "The variable EMU3_MOUNTPOINT must be set"
-  exit -1
-fi
+EMU3_MOUNTPOINT=mountpoint
 
 LANG=C
 
 function cleanUp() {
         echo "Cleaning up..."
         sudo umount -f $EMU3_MOUNTPOINT
+        rmdir $EMU3_MOUNTPOINT
         sudo losetup -d /dev/loop0
         rm -f image.iso  image_truncated.iso
 }
@@ -55,6 +53,7 @@ function testError() {
 
 total=0
 ok=0
+mkdir $EMU3_MOUNTPOINT
 
 echo "Inserting module..."
 logAndRun sudo modprobe -r emu3_fs

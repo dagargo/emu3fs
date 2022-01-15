@@ -239,7 +239,6 @@ Default Folder$ lsemu3 -s
 
 You can run some simple tests from the `tests` directory. The script mounts a clean image and run some commands on it. **Be aware that you will be asked for the root password** because some commands like `mount` requiere this.
 
-Also, you will need to pass the `EMU3_MOUNTPOINT` variable as this.
 
 ```
 $ EMU3_MOUNTPOINT=/media/emu3 ./tests.sh
