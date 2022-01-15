@@ -138,7 +138,6 @@ static int emu3_setattr(struct dentry *dentry, struct iattr *attr)
 
 		inode->i_blocks = blocks;
 	}
-
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
 	setattr_copy(&init_user_ns, inode, attr);
 #else

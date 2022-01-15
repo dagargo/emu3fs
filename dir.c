@@ -526,7 +526,6 @@ static int emu3_create(struct inode *dir,
 		iput(inode);
 		goto end;
 	}
-
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
 	inode_init_owner(&init_user_ns, inode, dir, mode);
 #else
@@ -807,8 +806,7 @@ static int emu3_rename(struct inode *old_dir,
 static int emu3_mkdir(struct user_namespace *mnt_userns, struct inode *dir,
 		      struct dentry *dentry, umode_t mode)
 #else
-static int emu3_mkdir(struct inode *dir,
-		      struct dentry *dentry, umode_t mode)
+static int emu3_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 #endif
 {
 	int err;
@@ -835,7 +833,6 @@ static int emu3_mkdir(struct inode *dir,
 		iput(inode);
 		return err;
 	}
-
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
 	inode_init_owner(&init_user_ns, inode, dir, EMU3_DIR_MODE);
 #else

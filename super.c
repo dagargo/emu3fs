@@ -514,7 +514,8 @@ static int emu3_fill_super(struct super_block *sb, void *data,
 	info->cluster_list_blocks = le32_to_cpu(parameters[7]);
 	info->start_data_block = le32_to_cpu(parameters[8]);
 	info->cluster_size_shift = 15 + e3sb[0x28];	//32kB minimum
-	info->blocks_per_cluster = 1 << (info->cluster_size_shift - EMU3_BSIZE_BITS);
+	info->blocks_per_cluster =
+	    1 << (info->cluster_size_shift - EMU3_BSIZE_BITS);
 	//In Formula 4000 only, the total amount of blocks and clusters would allow to have a disk bigger than the ISO image itself.
 	//Thus, the reported amount of blocks, size and free space is not right.
 	//However, if the iso image is resized to accommodate all the blocks, the format is valid and stat and df output the right values.

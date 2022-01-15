@@ -117,7 +117,7 @@ struct emu3_sb_info {
 	unsigned int start_data_block;
 	unsigned int blocks_per_cluster;
 	unsigned int clusters;
-	unsigned char cluster_size_shift; //Cluster size always a power of 2
+	unsigned char cluster_size_shift;	//Cluster size always a power of 2
 	short *cluster_list;
 	bool *dir_content_block_list;
 	unsigned int *i_maps;
