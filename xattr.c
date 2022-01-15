@@ -72,12 +72,12 @@ static int emu3_xattr_set(const struct xattr_handler *handler,
 	if (strcmp(name, EMU3_XATTR_BNUM))
 		return -ENODATA;
 
-	ret = kstrtol(buffer, 10, &bn);
+	ret = kstrtoul(buffer, 0, &bn);
 	if (ret) {
 		return ret;
 	}
 
-	if (bn < 0 || bn >= EMU3_MAX_FILES_PER_DIR) {
+	if (bn >= EMU3_MAX_FILES_PER_DIR) {
 		return -ERANGE;
 	}
 
