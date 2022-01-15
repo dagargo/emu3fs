@@ -22,7 +22,7 @@
 #include "emu3_fs.h"
 
 #define EMU3_XATTR_BNUM "bank.number"
-#define EMU3_XATTR_BNUM_LEN_MAX 4
+#define EMU3_XATTR_BNUM_LEN_MAX 8
 
 ssize_t emu3_listxattr(struct dentry *dentry, char *buffer, size_t size)
 {
@@ -68,11 +68,18 @@ static int emu3_xattr_set(const struct xattr_handler *handler,
 	struct emu3_dentry *e3d;
 	struct emu3_inode *e3i;
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
+	char value[EMU3_XATTR_BNUM_LEN_MAX];
 
 	if (strcmp(name, EMU3_XATTR_BNUM))
 		return -ENODATA;
 
-	ret = kstrtoul(buffer, 0, &bn);
+	if (size >= EMU3_XATTR_BNUM_LEN_MAX) {
+		return -ERANGE;
+	}
+
+	strncpy(value, buffer, size);
+	value[size] = '\0';
+	ret = kstrtoul(value, 0, &bn);
 	if (ret) {
 		return ret;
 	}
