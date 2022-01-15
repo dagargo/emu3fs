@@ -375,7 +375,7 @@ testError
 logAndRun setfattr -n "user.bank.number" --value=-1 $EMU3_MOUNTPOINT/d2/t2
 testError
 
-logAndRun getfattr -d -m ".*" $EMU3_MOUNTPOINT/d2
+logAndRun getfattr -d -m "user.bank.number" $EMU3_MOUNTPOINT/d2
 test
 logAndRun '[ -z "$out" ]'
 test
