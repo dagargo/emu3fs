@@ -202,7 +202,15 @@ test
 logAndRun '[ 1024 -eq $(stat --print "%b" $EMU3_MOUNTPOINT/foo/t3) ]'
 test
 
-logAndRun rm $EMU3_MOUNTPOINT/foo/t*
+for i in $(seq 0 4); do
+  f=t${i}
+  logAndRun rm $EMU3_MOUNTPOINT/foo/$f
+  test foo
+  logAndRun rm $EMU3_MOUNTPOINT/foo/$f
+  testError
+done
+
+logAndRun ls -l $EMU3_MOUNTPOINT/foo
 test foo
 
 logAndRun rmdir $EMU3_MOUNTPOINT/foo
