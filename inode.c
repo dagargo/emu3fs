@@ -97,10 +97,13 @@ static void emu3_set_inode_size_dir(struct inode *inode)
 {
 	struct emu3_inode *e3i = EMU3_I(inode);
 	unsigned int i;
-	short *block = e3i->data.dattrs.block_list;
-	for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++, block++)
-		if (EMU3_IS_DIR_BLOCK_FREE(*block))
+	short blknum, *block = e3i->data.dattrs.block_list;
+
+	for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++, block++) {
+		blknum = le16_to_cpu(*block);
+		if (EMU3_IS_DIR_BLOCK_FREE(blknum))
 			break;
+	}
 	inode->i_blocks = i;
 	inode->i_size = inode->i_blocks * EMU3_BSIZE;
 }

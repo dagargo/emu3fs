@@ -169,21 +169,19 @@ static bool emu3_fix_first_dir_blocks(struct emu3_dentry *e3d,
 				      struct emu3_sb_info *info)
 {
 	int i;
-	short new;
-	short old;
-	short *blknum;
+	short new, old, *block = e3d->data.dattrs.block_list;
 
-	blknum = e3d->data.dattrs.block_list;
-	for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++, blknum++) {
-		old = le16_to_cpu(*blknum);
+	for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++, block++) {
+		old = le16_to_cpu(*block);
 		if (EMU3_IS_DIR_BLOCK_FREE(old))
 			break;
+
 		new = info->start_dir_content_block + i;
 		if (new != old) {
 			printk(KERN_WARNING
 			       "%s: Directory block changed from 0x%04x to 0x%04x",
 			       EMU3_MODULE_NAME, old, new);
-			*blknum = cpu_to_le16(new);
+			*block = cpu_to_le16(new);
 		}
 	}
 
@@ -610,12 +608,11 @@ static int emu3_fill_super(struct super_block *sb, void *data,
 
 			block = e3d->data.dattrs.block_list;
 			for (k = 0; k < EMU3_BLOCKS_PER_DIR; k++, block++) {
-				if (EMU3_IS_DIR_BLOCK_FREE(*block))
+				index = le16_to_cpu(*block);
+				if (EMU3_IS_DIR_BLOCK_FREE(index))
 					continue;
 
-				index =
-				    le16_to_cpu(*block) -
-				    info->start_dir_content_block;
+				index = index - info->start_dir_content_block;
 
 				if (index < 0
 				    || index >= info->dir_content_blocks) {

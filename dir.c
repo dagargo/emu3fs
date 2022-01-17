@@ -179,7 +179,7 @@ static int emu3_iterate_dir(struct file *f, struct dir_context *ctx,
 
 	for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++) {
 		blknum = le16_to_cpu(e3d_dir->data.dattrs.block_list[i]);
-		if (blknum < 0)
+		if (EMU3_IS_DIR_BLOCK_FREE(blknum))
 			break;
 
 		b = sb_bread(dir->i_sb, blknum);
@@ -577,7 +577,6 @@ static bool emu3_is_dir_empty(struct emu3_dentry *e3d_dir,
 
 	for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++, block++) {
 		blknum = le16_to_cpu(*block);
-
 		if (EMU3_IS_DIR_BLOCK_FREE(blknum))
 			break;
 
@@ -891,7 +890,6 @@ static int emu3_rmdir(struct inode *dir, struct dentry *dentry)
 	block = e3d->data.dattrs.block_list;
 	for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++, block++) {
 		blknum = le16_to_cpu(*block);
-
 		if (EMU3_IS_DIR_BLOCK_FREE(blknum))
 			break;
 
