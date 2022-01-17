@@ -570,10 +570,10 @@ static bool emu3_is_dir_blk_used(struct emu3_dentry *e3d)
 static bool emu3_is_dir_empty(struct emu3_dentry *e3d_dir,
 			      struct super_block *sb)
 {
-	int i, blknum;
+	int i;
 	struct buffer_head *b;
 	struct emu3_dentry *e3d;
-	short *block = e3d_dir->data.dattrs.block_list;
+	short blknum, *block = e3d_dir->data.dattrs.block_list;
 
 	for (i = 0; i < EMU3_BLOCKS_PER_DIR; i++, block++) {
 		blknum = le16_to_cpu(*block);
