@@ -94,7 +94,11 @@ void emu3_init_fattrs(struct emu3_sb_info *info,
 	fattrs->start_cluster = cpu_to_le16(start_cluster);
 	emu3_set_fattrs(info, fattrs, 0);
 	fattrs->type = EMU3_FTYPE_STD;
-	memset(fattrs->props, 0, EMU3_FILE_PROPS_LEN);
+	if (info->emu4) {
+		memcpy(fattrs->props, "\0E4B0", EMU3_FILE_PROPS_LEN);
+	} else {
+		memset(fattrs->props, 0, EMU3_FILE_PROPS_LEN);
+	}
 }
 
 //Prunes the cluster list to the real inode size
@@ -565,6 +569,8 @@ static int emu3_fill_super(struct super_block *sb, void *data,
 
 	sb->s_op = &emu3_super_operations;
 	sb->s_xattr = emu3_xattr_handlers;
+
+	info->emu4 = emu4;
 
 	if (emu4)
 		root_ino = 1;

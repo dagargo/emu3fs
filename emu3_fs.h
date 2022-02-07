@@ -122,6 +122,7 @@ struct emu3_sb_info {
 	bool *dir_content_block_list;
 	unsigned int *i_maps;
 	struct mutex lock;
+	bool emu4;
 };
 
 struct emu3_file_attrs {
