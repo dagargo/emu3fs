@@ -130,6 +130,17 @@ test
 logAndRun ls -l $EMU3_MOUNTPOINT/foo/t3
 test
 
+printTest "cp -r"
+
+logAndRun cp -r $EMU3_MOUNTPOINT/foo $EMU3_MOUNTPOINT/bar
+test
+logAndRun ls -l $EMU3_MOUNTPOINT/bar/t1
+test
+logAndRun cat $EMU3_MOUNTPOINT/bar/t1
+test
+logAndRun '[ 123$'\''\n'\''4567 == "$out" ]'
+test
+
 printTest "mv"
 
 logAndRun mv $EMU3_MOUNTPOINT/foo/t3 $EMU3_MOUNTPOINT/foo/t2
