@@ -79,9 +79,9 @@ emu3_get_block(struct inode *inode, sector_t block,
 	return 0;
 }
 
-static int emu3_readpage(struct file *file, struct page *page)
+static int emu3_read_folio(struct file *file, struct folio *folio)
 {
-	return block_read_full_page(page, emu3_get_block);
+	return block_read_full_folio(folio, emu3_get_block);
 }
 
 static int emu3_writepage(struct page *page, struct writeback_control *wbc)
@@ -147,7 +147,7 @@ static int emu3_setattr(struct dentry *dentry, struct iattr *attr)
 }
 
 const struct address_space_operations emu3_aops = {
-	.readpage = emu3_readpage,
+	.read_folio = emu3_read_folio,
 	.writepage = emu3_writepage,
 	.write_begin = emu3_write_begin,
 	.write_end = generic_write_end,
