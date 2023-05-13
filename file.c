@@ -91,11 +91,9 @@ static int emu3_writepage(struct page *page, struct writeback_control *wbc)
 
 static int
 emu3_write_begin(struct file *file, struct address_space *mapping,
-		 loff_t pos, unsigned len, unsigned flags,
-		 struct page **pagep, void **fsdata)
+		 loff_t pos, unsigned len, struct page **pagep, void **fsdata)
 {
-	return block_write_begin(mapping, pos, len, flags, pagep,
-				 emu3_get_block);
+	return block_write_begin(mapping, pos, len, pagep, emu3_get_block);
 }
 
 static sector_t emu3_bmap(struct address_space *mapping, sector_t block)
