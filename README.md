@@ -6,7 +6,7 @@ Currently, it has been verified to work with CDs, Zip drives and SD cards (used 
 
 ## Installation
 
-Simply run `make && sudo make install`. Note that you will need the Linux kernel headers to compile the module.
+Simply run `make && sudo make install && sudo depmod`. Note that you will need the Linux kernel headers to compile the module.
 
 ## Usage
 
