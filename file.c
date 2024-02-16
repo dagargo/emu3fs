@@ -101,12 +101,8 @@ static sector_t emu3_bmap(struct address_space *mapping, sector_t block)
 	return generic_block_bmap(mapping, block, emu3_get_block);
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
 static int emu3_setattr(struct user_namespace *mnt_userns,
 			struct dentry *dentry, struct iattr *attr)
-#else
-static int emu3_setattr(struct dentry *dentry, struct iattr *attr)
-#endif
 {
 	struct inode *inode = d_inode(dentry);
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
@@ -114,11 +110,7 @@ static int emu3_setattr(struct dentry *dentry, struct iattr *attr)
 	blkcnt_t blocks;
 	int err;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
 	err = setattr_prepare(&init_user_ns, dentry, attr);
-#else
-	err = setattr_prepare(dentry, attr);
-#endif
 	if (err)
 		return err;
 
@@ -136,11 +128,7 @@ static int emu3_setattr(struct dentry *dentry, struct iattr *attr)
 
 		inode->i_blocks = blocks;
 	}
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
 	setattr_copy(&init_user_ns, inode, attr);
-#else
-	setattr_copy(inode, attr);
-#endif
 	mark_inode_dirty(inode);
 
 	return 0;
