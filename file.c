@@ -101,8 +101,8 @@ static sector_t emu3_bmap(struct address_space *mapping, sector_t block)
 	return generic_block_bmap(mapping, block, emu3_get_block);
 }
 
-static int emu3_setattr(struct user_namespace *mnt_userns,
-			struct dentry *dentry, struct iattr *attr)
+static int emu3_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+			struct iattr *attr)
 {
 	struct inode *inode = d_inode(dentry);
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
@@ -110,7 +110,7 @@ static int emu3_setattr(struct user_namespace *mnt_userns,
 	blkcnt_t blocks;
 	int err;
 
-	err = setattr_prepare(&init_user_ns, dentry, attr);
+	err = setattr_prepare(&nop_mnt_idmap, dentry, attr);
 	if (err)
 		return err;
 
@@ -128,7 +128,7 @@ static int emu3_setattr(struct user_namespace *mnt_userns,
 
 		inode->i_blocks = blocks;
 	}
-	setattr_copy(&init_user_ns, inode, attr);
+	setattr_copy(&nop_mnt_idmap, inode, attr);
 	mark_inode_dirty(inode);
 
 	return 0;

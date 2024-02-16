@@ -50,10 +50,9 @@ static int emu3_xattr_get(const struct xattr_handler *handler,
 }
 
 static int emu3_xattr_set(const struct xattr_handler *handler,
-			  struct user_namespace *mnt_userns,
-			  struct dentry *dentry, struct inode *inode,
-			  const char *name, const void *buffer, size_t size,
-			  int flags)
+			  struct mnt_idmap *idmap, struct dentry *dentry,
+			  struct inode *inode, const char *name,
+			  const void *buffer, size_t size, int flags)
 {
 	long bn;
 	int ret;
