@@ -886,9 +886,10 @@ static int emu3_rmdir(struct inode *dir, struct dentry *dentry)
 	return ret;
 }
 
+WRAP_DIR_ITER(emu3_iterate)	// FIXME!
 const struct file_operations emu3_file_operations_dir = {
 	.read = generic_read_dir,
-	.iterate = emu3_iterate,
+	.iterate_shared = shared_emu3_iterate,
 	.fsync = generic_file_fsync,
 	.llseek = generic_file_llseek,
 };
