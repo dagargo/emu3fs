@@ -140,6 +140,7 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 	umode_t mode;
 	unsigned int links;
 	struct inode *inode;
+	struct timespec64 tv;
 	struct emu3_dentry *e3d;
 	struct buffer_head *b;
 	const struct inode_operations *iops;
@@ -203,7 +204,9 @@ struct inode *emu3_get_inode(struct super_block *sb, unsigned long ino)
 	set_nlink(inode, links);
 	inode->i_op = iops;
 	inode->i_fop = fops;
-	inode->i_mtime = inode->i_atime = inode->i_ctime = current_time(inode);
+	tv = inode_set_ctime_current(inode);
+	inode_set_mtime_to_ts(inode, tv);
+	inode_set_ctime_to_ts(inode, tv);
 
 	unlock_new_inode(inode);
 

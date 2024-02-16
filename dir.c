@@ -497,6 +497,7 @@ static int emu3_create(struct mnt_idmap *idmap, struct inode *dir,
 	int err;
 	unsigned int dnum;
 	struct inode *inode;
+	struct timespec64 tv;
 	struct buffer_head *b;
 	struct emu3_dentry *e3d;
 	struct super_block *sb = dir->i_sb;
@@ -522,7 +523,9 @@ static int emu3_create(struct mnt_idmap *idmap, struct inode *dir,
 		goto end;
 	}
 	inode_init_owner(&nop_mnt_idmap, inode, dir, mode);
-	inode->i_mtime = inode->i_atime = inode->i_ctime = current_time(inode);
+	tv = inode_set_ctime_current(inode);
+	inode_set_mtime_to_ts(inode, tv);
+	inode_set_ctime_to_ts(inode, tv);
 	inode->i_blocks = info->blocks_per_cluster;
 	inode->i_op = &emu3_inode_operations_file;
 	inode->i_fop = &emu3_file_operations_file;
@@ -666,6 +669,7 @@ static int emu3_add_dir_dentry(struct inode *dir, struct qstr *q,
 
 static int emu3_unlink(struct inode *dir, struct dentry *dentry)
 {
+	struct timespec64 tv;
 	struct buffer_head *b;
 	struct emu3_dentry *e3d;
 	struct inode *inode = dentry->d_inode;
@@ -680,9 +684,9 @@ static int emu3_unlink(struct inode *dir, struct dentry *dentry)
 
 	e3d->data.fattrs.type = EMU3_FTYPE_DEL;
 	mark_buffer_dirty_inode(b, dir);
-	dir->i_ctime = dir->i_mtime = current_time(dir);
+	tv = inode_set_ctime_current(dir);
 	mark_inode_dirty(dir);
-	inode->i_ctime = dir->i_ctime;
+	inode_set_ctime_to_ts(inode, tv);
 	inode_dec_link_count(inode);
 	brelse(b);
 
@@ -792,6 +796,7 @@ static int emu3_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 	int err;
 	unsigned int dnum;
 	struct inode *inode;
+	struct timespec64 tv;
 	struct buffer_head *b;
 	struct emu3_dentry *e3d;
 	struct super_block *sb = dir->i_sb;
@@ -820,7 +825,9 @@ static int emu3_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 	inode->i_opflags &= ~IOP_XATTR;
 	inode->i_ino = emu3_get_or_add_i_map(info, dnum);
 	inode->i_size = EMU3_BSIZE;
-	inode->i_mtime = inode->i_atime = inode->i_ctime = current_time(inode);
+	tv = inode_set_ctime_current(inode);
+	inode_set_mtime_to_ts(inode, tv);
+	inode_set_ctime_to_ts(inode, tv);
 
 	emu3_set_emu3_inode_data(inode, e3d);
 	brelse(b);
