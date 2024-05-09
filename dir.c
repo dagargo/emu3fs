@@ -440,7 +440,7 @@ static int emu3_find_empty_file_dentry(struct inode *dir,
 
 	dir->i_blocks++;
 	dir->i_size = dir->i_blocks * EMU3_BSIZE;
-	dir->i_mtime = current_time(dir);
+	inode_set_mtime_to_ts(dir, current_time(dir));
 	mark_inode_dirty(dir);
 
  add_id:
@@ -661,7 +661,7 @@ static int emu3_add_dir_dentry(struct inode *dir, struct qstr *q,
 		(*e3d)->data.dattrs.block_list[i] =
 		    cpu_to_le16(EMU3_FREE_DIR_BLOCK);
 	}
-	dir->i_mtime = current_time(dir);
+	inode_set_mtime_to_ts(dir, current_time(dir));
 	mark_buffer_dirty_inode(*b, dir);
 
 	return 0;
@@ -730,7 +730,7 @@ static int emu3_rename(struct mnt_idmap *idmap, struct inode *old_dir,
 			if (old_dir == new_dir) {
 				new_e3d->data.fattrs.type = EMU3_FTYPE_DEL;
 				mark_buffer_dirty_inode(new_b, new_dir);
-				new_dir->i_mtime = current_time(new_dir);
+				inode_set_mtime_to_ts (new_dir, current_time(new_dir));
 				mark_inode_dirty(new_dir);
 			}
 		} else
@@ -754,7 +754,7 @@ static int emu3_rename(struct mnt_idmap *idmap, struct inode *old_dir,
 	if (old_dir == new_dir) {
 		emu3_set_dentry_name(old_e3d, &new_dentry->d_name);
 		mark_buffer_dirty_inode(old_b, old_dir);
-		old_dir->i_mtime = current_time(old_dir);
+		inode_set_mtime_to_ts(old_dir, current_time(old_dir));
 		mark_inode_dirty(old_dir);
 	} else {
 		if (dnum)
@@ -771,7 +771,7 @@ static int emu3_rename(struct mnt_idmap *idmap, struct inode *old_dir,
 
 			emu3_set_emu3_inode_data(old_dentry->d_inode, new_e3d);
 
-			new_dir->i_mtime = current_time(new_dir);
+			inode_set_mtime_to_ts(new_dir, current_time(old_dir));
 			mark_buffer_dirty_inode(new_b, new_dir);
 
 			emu3_set_i_map(info, old_dentry->d_inode, dnum);
@@ -779,7 +779,7 @@ static int emu3_rename(struct mnt_idmap *idmap, struct inode *old_dir,
 
 		old_e3d->data.fattrs.type = EMU3_FTYPE_DEL;
 		mark_buffer_dirty_inode(old_b, old_dir);
-		old_dir->i_mtime = current_time(old_dir);
+		inode_set_mtime_to_ts(old_dir, current_time(old_dir));
 		mark_inode_dirty(old_dir);
 	}
 
