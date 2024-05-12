@@ -730,7 +730,8 @@ static int emu3_rename(struct mnt_idmap *idmap, struct inode *old_dir,
 			if (old_dir == new_dir) {
 				new_e3d->data.fattrs.type = EMU3_FTYPE_DEL;
 				mark_buffer_dirty_inode(new_b, new_dir);
-				inode_set_mtime_to_ts (new_dir, current_time(new_dir));
+				inode_set_mtime_to_ts(new_dir,
+						      current_time(new_dir));
 				mark_inode_dirty(new_dir);
 			}
 		} else
