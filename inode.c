@@ -108,7 +108,7 @@ static void emu3_set_inode_size_dir(struct inode *inode)
 	inode->i_size = inode->i_blocks * EMU3_BSIZE;
 }
 
-void emu3_set_inode_size_file(struct inode *inode)
+static void emu3_set_inode_size_file(struct inode *inode)
 {
 	struct emu3_sb_info *info = EMU3_SB(inode->i_sb);
 	struct emu3_inode *e3i = EMU3_I(inode);
