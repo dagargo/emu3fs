@@ -18,6 +18,8 @@
  *   along with emu3fs. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/fs.h>
+#include <linux/mpage.h>
 #include "emu3_fs.h"
 
 //Base 0 search
@@ -84,9 +86,10 @@ static int emu3_read_folio(struct file *file, struct folio *folio)
 	return block_read_full_folio(folio, emu3_get_block);
 }
 
-static int emu3_writepage(struct page *page, struct writeback_control *wbc)
+static int emu3_writepages(struct address_space *mapping,
+			   struct writeback_control *wbc)
 {
-	return block_write_full_page(page, emu3_get_block, wbc);
+	return mpage_writepages(mapping, wbc, emu3_get_block);
 }
 
 static int
@@ -136,7 +139,7 @@ static int emu3_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
 
 const struct address_space_operations emu3_aops = {
 	.read_folio = emu3_read_folio,
-	.writepage = emu3_writepage,
+	.writepages = emu3_writepages,
 	.write_begin = emu3_write_begin,
 	.write_end = generic_write_end,
 	.bmap = emu3_bmap,
