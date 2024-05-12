@@ -7,25 +7,25 @@ EMU3_MOUNTPOINT=mountpoint
 LANG=C
 
 function cleanUp() {
-        echo "Cleaning up..."
-        sudo umount -f $EMU3_MOUNTPOINT
-        rmdir $EMU3_MOUNTPOINT
-        sudo losetup -d /dev/loop0
-        rm -f image.iso  image_truncated.iso
+  echo "Cleaning up..."
+  sudo umount -f $EMU3_MOUNTPOINT
+  rmdir $EMU3_MOUNTPOINT
+  sudo losetup -d /dev/loop0
+  rm -f image.iso  image_truncated.iso
 }
 
 function logAndRun() {
-        echo "Running '$*'..."
-        out=$(eval $*)
-        err=$?
-        [ -n "$out" ] && echo $out
-        return $err
+  echo "Running '$*'..."
+  out=$(eval $*)
+  err=$?
+  [ -n "$out" ] && echo $out
+  return $err
 }
 
 function printTest() {
-        printf "\033[1;34m*** Test: $* ***\033[0m\n"
-        echo "emu3fs: *** Test: $* ***" | sudo tee /dev/kmsg
-        echo
+  printf "\033[1;34m*** Test: $* ***\033[0m\n"
+  echo "emu3fs: *** Test: $* ***" | sudo tee /dev/kmsg
+  echo
 }
 
 function testCommon() {
