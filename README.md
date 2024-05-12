@@ -241,7 +241,7 @@ You can run some simple tests from the `tests` directory. The script mounts a cl
 
 
 ```
-$ EMU3_MOUNTPOINT=/media/emu3 ./tests.sh
+$ ./tests.sh
 ```
 
 ## Related project
