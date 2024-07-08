@@ -202,8 +202,7 @@ static int init_inodecache(void)
 {
 	emu3_inode_cachep = kmem_cache_create("emu3_inode_cache",
 					      sizeof(struct emu3_inode),
-					      0, (SLAB_RECLAIM_ACCOUNT |
-						  SLAB_MEM_SPREAD),
+					      0, (SLAB_RECLAIM_ACCOUNT),
 					      emu3_init_once);
 	if (emu3_inode_cachep == NULL)
 		return -ENOMEM;
