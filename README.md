@@ -8,6 +8,8 @@ Currently, it has been verified to work with CDs, Zip drives and SD cards (used 
 
 Simply run `make && sudo make install && sudo depmod`. Note that you will need the Linux kernel headers to compile the module.
 
+As emu3fs is outside the kernel tree, the `master` branch should not be used at when compiling. Instead, the tag matching the kernel version the module is going be compiled against to should be ckecked out. If there is not a tag for such version, the closest ones might work as the API could be the same.
+
 ## Usage
 
 Once the module is inserted into the kernel (you might use `sudo modprobe emu3_fs` for this), you can mount the devices. You have 2 options here.
