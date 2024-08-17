@@ -418,7 +418,7 @@ static int emu3_find_empty_file_dentry(struct inode *dir,
 	}
 
 	blknum = emu3_get_free_dir_content_block(info);
-	if (block < 0) {
+	if (blknum < 0) {
 		err = -ENOSPC;
 		goto cleanup;
 	}
