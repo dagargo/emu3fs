@@ -194,7 +194,9 @@ void emu3_set_emu3_inode_data(struct inode *, struct emu3_dentry *);
 
 ssize_t emu3_listxattr(struct dentry *, char *, size_t);
 
-void emu3_free_dir_content_block(struct emu3_sb_info *, int);
+void emu3_free_dir_content_block(struct emu3_sb_info *, short);
+
+void emu3_use_dir_content_block(struct emu3_sb_info *, short);
 
 short emu3_get_free_dir_content_blknum(struct emu3_sb_info *);
 

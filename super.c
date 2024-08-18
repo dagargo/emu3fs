@@ -25,10 +25,16 @@
 
 static struct kmem_cache *emu3_inode_cachep;
 
-inline void emu3_free_dir_content_block(struct emu3_sb_info *info, int blknum)
+inline void emu3_free_dir_content_block(struct emu3_sb_info *info, short blknum)
 {
 	info->dir_content_block_list[blknum - info->start_dir_content_block] =
 	    0;
+}
+
+inline void emu3_use_dir_content_block(struct emu3_sb_info *info, short blknum)
+{
+	info->dir_content_block_list[blknum - info->start_dir_content_block] =
+	    1;
 }
 
 short emu3_get_free_dir_content_blknum(struct emu3_sb_info *info)
@@ -36,7 +42,6 @@ short emu3_get_free_dir_content_blknum(struct emu3_sb_info *info)
 	int i;
 	for (i = 0; i < info->dir_content_blocks; i++)
 		if (!info->dir_content_block_list[i]) {
-			info->dir_content_block_list[i] = 1;
 			return info->start_dir_content_block + i;
 		}
 	return -1;

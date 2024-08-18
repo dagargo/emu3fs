@@ -434,6 +434,8 @@ static int emu3_find_empty_file_dentry(struct inode *dir,
 		goto cleanup;
 	}
 
+	emu3_use_dir_content_block(info, blknum);
+
 	*dnum = EMU3_DNUM(blknum, 0);
 
 	*e3d = (struct emu3_dentry *)(*b)->b_data;
@@ -653,6 +655,8 @@ static int emu3_add_dir_dentry(struct inode *dir, struct qstr *q,
 		brelse(*b);
 		return -ENOSPC;
 	}
+
+	emu3_use_dir_content_block(info, blknum);
 
 	emu3_set_dentry_name(*e3d, q);
 	(*e3d)->data.unknown = 0;
