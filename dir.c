@@ -632,7 +632,8 @@ static int emu3_add_dir_dentry(struct inode *dir, struct qstr *q,
 			       unsigned int *dnum, struct emu3_dentry **e3d,
 			       struct buffer_head **b)
 {
-	int i, blknum;
+	int i;
+	short blknum;
 	struct emu3_sb_info *info = EMU3_SB(dir->i_sb);
 	struct super_block *sb = dir->i_sb;
 
@@ -813,12 +814,12 @@ static int emu3_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 	mutex_lock(&info->lock);
 
 	err = emu3_add_dir_dentry(dir, &dentry->d_name, &dnum, &e3d, &b);
-
 	if (err) {
 		mutex_unlock(&info->lock);
 		iput(inode);
 		return err;
 	}
+
 	inode_init_owner(&nop_mnt_idmap, inode, dir, EMU3_DIR_MODE);
 	inode->i_blocks = 1;
 	inode->i_op = &emu3_inode_operations_dir;
