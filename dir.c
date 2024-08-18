@@ -632,7 +632,7 @@ static int emu3_add_dir_dentry(struct inode *dir, struct qstr *q,
 			       unsigned int *dnum, struct emu3_dentry **e3d,
 			       struct buffer_head **b)
 {
-	int i, block;
+	int i, blknum;
 	struct emu3_sb_info *info = EMU3_SB(dir->i_sb);
 	struct super_block *sb = dir->i_sb;
 
@@ -647,8 +647,8 @@ static int emu3_add_dir_dentry(struct inode *dir, struct qstr *q,
 	if (!*e3d)
 		return -ENOSPC;
 
-	block = emu3_get_free_dir_content_blknum(info);
-	if (block < 0) {
+	blknum = emu3_get_free_dir_content_blknum(info);
+	if (blknum < 0) {
 		brelse(*b);
 		return -ENOSPC;
 	}
@@ -656,7 +656,7 @@ static int emu3_add_dir_dentry(struct inode *dir, struct qstr *q,
 	emu3_set_dentry_name(*e3d, q);
 	(*e3d)->data.unknown = 0;
 	(*e3d)->data.id = EMU3_DTYPE_1;
-	(*e3d)->data.dattrs.block_list[0] = cpu_to_le16(block);
+	(*e3d)->data.dattrs.block_list[0] = cpu_to_le16(blknum);
 	for (i = 1; i < EMU3_BLOCKS_PER_DIR; i++) {
 		(*e3d)->data.dattrs.block_list[i] =
 		    cpu_to_le16(EMU3_FREE_DIR_BLOCK);
