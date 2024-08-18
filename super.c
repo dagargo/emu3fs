@@ -31,7 +31,7 @@ inline void emu3_free_dir_content_block(struct emu3_sb_info *info, int blknum)
 	    0;
 }
 
-int emu3_get_free_dir_content_blknum(struct emu3_sb_info *info)
+short emu3_get_free_dir_content_blknum(struct emu3_sb_info *info)
 {
 	int i;
 	for (i = 0; i < info->dir_content_blocks; i++)
