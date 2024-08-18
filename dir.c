@@ -417,7 +417,7 @@ static int emu3_find_empty_file_dentry(struct inode *dir,
 		goto cleanup;
 	}
 
-	blknum = emu3_get_free_dir_content_block(info);
+	blknum = emu3_get_free_dir_content_blknum(info);
 	if (blknum < 0) {
 		err = -ENOSPC;
 		goto cleanup;
@@ -647,7 +647,7 @@ static int emu3_add_dir_dentry(struct inode *dir, struct qstr *q,
 	if (!*e3d)
 		return -ENOSPC;
 
-	block = emu3_get_free_dir_content_block(info);
+	block = emu3_get_free_dir_content_blknum(info);
 	if (block < 0) {
 		brelse(*b);
 		return -ENOSPC;
