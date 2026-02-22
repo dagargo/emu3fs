@@ -21,6 +21,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/fs_context.h>
 #include "emu3_fs.h"
 
 static struct kmem_cache *emu3_inode_cachep;
@@ -465,8 +466,8 @@ static const struct super_operations emu3_super_operations = {
 	.statfs = emu3_statfs
 };
 
-static int emu3_fill_super(struct super_block *sb, void *data,
-			   int silent, bool emu4)
+static int emu3_fill_super(struct super_block *sb, struct fs_context *fc,
+			   bool emu4)
 {
 	struct emu3_sb_info *info;
 	struct buffer_head *sbh;
@@ -661,32 +662,50 @@ static int emu3_fill_super(struct super_block *sb, void *data,
 	return err;
 }
 
-static int emu3_fill_super_v3(struct super_block *sb, void *data, int silent)
+static int emu3_fill_super_v3(struct super_block *sb, struct fs_context *fc)
 {
-	return emu3_fill_super(sb, data, silent, 0);
+	return emu3_fill_super(sb, fc, 0);
 }
 
-static int emu3_fill_super_v4(struct super_block *sb, void *data, int silent)
+static int emu3_fill_super_v4(struct super_block *sb, struct fs_context *fc)
 {
-	return emu3_fill_super(sb, data, silent, 1);
+	return emu3_fill_super(sb, fc, 1);
 }
 
-static struct dentry *emu3_mount_v3(struct file_system_type *fs_type,
-				    int flags, const char *dev_name, void *data)
+static int emu3_get_tree_v3(struct fs_context *fc)
 {
-	return mount_bdev(fs_type, flags, dev_name, data, emu3_fill_super_v3);
+	return get_tree_bdev(fc, emu3_fill_super_v3);
 }
 
-static struct dentry *emu3_mount_v4(struct file_system_type *fs_type,
-				    int flags, const char *dev_name, void *data)
+static int emu3_get_tree_v4(struct fs_context *fc)
 {
-	return mount_bdev(fs_type, flags, dev_name, data, emu3_fill_super_v4);
+	return get_tree_bdev(fc, emu3_fill_super_v4);
+}
+
+static const struct fs_context_operations emu3_context_ops_v3 = {
+	.get_tree = emu3_get_tree_v3,
+};
+
+static const struct fs_context_operations emu3_context_ops_v4 = {
+	.get_tree = emu3_get_tree_v4,
+};
+
+static int emu3_init_fs_context_v3(struct fs_context *fc)
+{
+	fc->ops = &emu3_context_ops_v3;
+	return 0;
+}
+
+static int emu3_init_fs_context_v4(struct fs_context *fc)
+{
+	fc->ops = &emu3_context_ops_v4;
+	return 0;
 }
 
 static struct file_system_type emu3_fs_type_v3 = {
 	.owner = THIS_MODULE,
 	.name = "emu3",
-	.mount = emu3_mount_v3,
+	.init_fs_context = emu3_init_fs_context_v3,
 	.kill_sb = kill_block_super,
 	.fs_flags = FS_REQUIRES_DEV,
 };
@@ -694,7 +713,7 @@ static struct file_system_type emu3_fs_type_v3 = {
 static struct file_system_type emu3_fs_type_v4 = {
 	.owner = THIS_MODULE,
 	.name = "emu4",
-	.mount = emu3_mount_v4,
+	.init_fs_context = emu3_init_fs_context_v4,
 	.kill_sb = kill_block_super,
 	.fs_flags = FS_REQUIRES_DEV,
 };
