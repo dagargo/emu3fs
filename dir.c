@@ -20,7 +20,7 @@
 
 #include "emu3_fs.h"
 
-static void emu3_set_dentry_name(struct emu3_dentry *e3d, struct qstr *q)
+static void emu3_set_dentry_name(struct emu3_dentry *e3d, const struct qstr *q)
 {
 	memcpy(e3d->name, q->name, q->len);
 	memset(&e3d->name[q->len], ' ', EMU3_LENGTH_FILENAME - q->len);
@@ -630,7 +630,7 @@ static struct emu3_dentry *emu3_find_empty_dir_dentry(struct super_block *sb,
 	return NULL;
 }
 
-static int emu3_add_dir_dentry(struct inode *dir, struct qstr *q,
+static int emu3_add_dir_dentry(struct inode *dir, const struct qstr *q,
 			       unsigned int *dnum, struct emu3_dentry **e3d,
 			       struct buffer_head **b)
 {
