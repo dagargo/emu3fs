@@ -796,8 +796,8 @@ static int emu3_rename(struct mnt_idmap *idmap, struct inode *old_dir,
 	return err;
 }
 
-static int emu3_mkdir(struct mnt_idmap *idmap, struct inode *dir,
-		      struct dentry *dentry, umode_t mode)
+static struct dentry *emu3_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+				 struct dentry *dentry, umode_t mode)
 {
 	int err;
 	unsigned int dnum;
@@ -809,11 +809,11 @@ static int emu3_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 	struct emu3_sb_info *info = EMU3_SB(sb);
 
 	if (!EMU3_IS_I_ROOT_DIR(dir))
-		return -EPERM;
+		return ERR_PTR(-EPERM);
 
 	inode = new_inode(sb);
 	if (!inode)
-		return -ENOSPC;
+		return ERR_PTR(-ENOSPC);
 
 	mutex_lock(&info->lock);
 
@@ -821,7 +821,7 @@ static int emu3_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 	if (err) {
 		mutex_unlock(&info->lock);
 		iput(inode);
-		return err;
+		return ERR_PTR(err);
 	}
 
 	inode_init_owner(&nop_mnt_idmap, inode, dir, EMU3_DIR_MODE);
@@ -847,7 +847,7 @@ static int emu3_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 
 	d_instantiate(dentry, inode);
 
-	return 0;
+	return NULL;
 }
 
 static int emu3_rmdir(struct inode *dir, struct dentry *dentry)
