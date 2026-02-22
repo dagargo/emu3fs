@@ -93,7 +93,7 @@ static int emu3_writepages(struct address_space *mapping,
 }
 
 static int
-emu3_write_begin(struct file *file, struct address_space *mapping,
+emu3_write_begin(const struct kiocb *iocb, struct address_space *mapping,
 		 loff_t pos, unsigned len, struct folio **foliop, void **fsdata)
 {
 	return block_write_begin(mapping, pos, len, foliop, emu3_get_block);
